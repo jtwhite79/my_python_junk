@@ -9,7 +9,7 @@ INDIV = 'individual'
 
 class pws():
     def __init__(self,perm_no,well_no,util,dia,dep,case,\
-                 wfield=['all'],dril=datetime(1900,1,1),aban=(2012,5,1)):
+                 wfield=['all'],dril=datetime(1900,1,1),aban=datetime(2012,5,1)):
         self.perm_no = perm_no
         self.well_no = well_no     
         self.util = util        
@@ -33,12 +33,19 @@ class pws():
                 return True
         return False 
     
-    def add_record(self,rtype,dt,val):
+    def add_record(self,rtype,dt,val,accum_dt=False):
+        '''accum_dt determines if entries for the same datetime are summed or not
+        '''
         if rtype not in self.records:
             self.records[rtype] = [[dt],[val]]
         else:
-            self.records[rtype][0].append(dt)                                   
-            self.records[rtype][1].append(val)
+            if accum_dt and dt in self.records[rtype][0]:
+                idx = self.records[rtype][0].index(dt)
+                self.records[rtype][1][idx] += val
+            else:    
+                self.records[rtype][0].append(dt)                                   
+                self.records[rtype][1].append(val)
+
     def write_records(self,odir='.\\'):
         #--converts monthly mgals to daily ft3
         for k,rec in self.records.iteritems():

@@ -66,9 +66,6 @@ def load_ds4b(filename):
     return ds4b       
            
 
-
-
-
 class ds_13a():
     def __init__(self,filename):
         self.filename = filename
@@ -101,7 +98,7 @@ class ds_13a():
             if line == '':
                 break    
             #
-            #print raw
+            print raw
             s['istrrch'] = int(raw[0])
             s['istrnum'] = int(raw[1])
             s['istrconn'] = int(raw[2])
@@ -360,9 +357,7 @@ class ds_13a():
                     nstruct.append(1)
                     filtered[-1]['istrnum'] = 1
         
-        #--now reset 
-        
-                
+        #--now reset                         
         self.structures = filtered
                                         
                     
@@ -491,8 +486,7 @@ class ds_13a():
                 ss['strinv'] = s['cstrcrit']
                 ss['strval'] = s['cstrcrit']
                 ss['istrdir'] = 0 
-                ss['a_com'] = s['a_com']
-                ss['a_com'] += s['b_com']
+                ss['a_com'] = s['a_com']                
                 new_structures.append(ss)
         
         #--remove original op structures
