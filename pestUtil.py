@@ -12,6 +12,102 @@ idx_reg = re.compile('index')
 start_reg = re.compile('commencing')
 end_reg = re.compile('completed')
 
+vario_type_dict = {'spherical':'1','exponential':'2','gaussian':'3','power':'4'}
+structure_list = [['STRUCTURE',['NUGGET','TRANSFORM','NUMVARIOGRAM',['VARNAME','CONTRIB']]],['VARIOGRAM',['VARTYPE','BEARING','A','ANISOTROPY']]]
+
+
+def gslib_2_smp(fname,out_ftype='.dat',xname='X',yname='Y'):
+    f = open(fname,'r')
+    title = f.readline().strip()
+    num_props = int(f.readline().strip())
+    prop_names = []
+    props = {}    
+    for i in range(num_props):
+        pname = f.readline().strip()
+        prop_names.append(pname)
+        props[pname] = []
+    assert xname in prop_names
+    assert yname in prop_names
+    for line in f:
+        raw = line.strip().split()
+        for prop,pname in zip(raw,prop_names):
+            props[pname].append(float(prop))
+    f.close()
+
+    #--check for duplicate points
+    d_idx = []
+    for i,[x,y] in enumerate(zip(props[xname],props[yname])):
+        for ii,[xx,yy] in enumerate(zip(props[xname][i+1:],props[yname][i+1:])):
+            if xx == x and yy == y:
+                d_idx.append(i)
+    #--remove duplicates
+    for i in d_idx[::-1]:
+        for pname in props.keys():
+            props[pname].pop(i)
+
+                
+    xlist = props.pop(xname)
+    ylist = props.pop(yname)            
+    zonelist = np.ones(len(xlist))
+    namelist = ['point'+str(i+1) for i in range(len(xlist))]
+    for pname,plist in props.iteritems():
+        smp_name = title+'_'+pname+'.smp'
+        write_smp(smp_name,namelist,xlist,ylist,zonelist,plist)
+
+
+
+def write_smp(fname,namelist,xlist,ylist,zonelist,vlist):
+    f = open(fname,'w')
+    for n,x,y,zone,v in zip(namelist,xlist,ylist,zonelist,vlist):
+        f.write(n.ljust(25)+' {0:20.6e} {1:20.6e} {2:20.0f} {3:20.6e}\n'.format(x,y,zone,v))
+    f.close()
+ 
+            
+
+
+
+
+def write_structure_from_dict(file_name,structure_name,s_dict):
+    try:
+        f_out = open(file_name,'w')
+    except TypeError:
+        f_out = file_name
+    f_out.write('STRUCTURE '+s_dict['STRUCTNAME']+'\n')
+    f_out.write(' NUGGET '+s_dict['NUGGET']+'\n')
+    
+    if 'TRANSFORM' in s_dict.keys():
+        f_out.write(' TRANSFORM '+s_dict['TRANSFORM']+'\n')
+    else:
+        f_out.write(' TRANSFORM NONE\n')
+    f_out.write(' NUMVARIOGRAM '+str(s_dict['NUMVARIOGRAM'])+'\n')    
+    s_dict.pop('NUGGET')
+    s_dict.pop('NUMVARIOGRAM')
+    s_dict.pop('STRUCTNAME')
+    vario_strings = []
+    for v_name,v_dict in s_dict.iteritems():
+        f_out.write(' VARIOGRAM '+v_name+' '+v_dict['CONTRIBUTION']+'\n')
+        vario_strings.append(write_vario(v_dict))
+
+    f_out.write('END STRUCTURE\n\n\n')
+    for v in vario_strings:
+        f_out.write(v)
+   
+    return
+
+
+def write_vario(v_dict):    
+           
+    vstr = ''
+    vstr += 'VARIOGRAM '+v_dict['VARNAME']+'\n'
+    vstr += ' VARTYPE '+v_dict['VARTYPE']+'\n'
+    vstr += ' BEARING '+v_dict['BEARING']+'\n'
+    vstr += ' A '+v_dict['A']+'\n'
+    vstr += ' ANISOTROPY '+v_dict['ANISOTROPY']+'\n'
+    vstr += 'END VARIOGRAM\n\n'
+    
+    return vstr
+
+
 def load_res(res_file,skipRegul=True):
     name_idx,grp_idx = 0,1
     meas_idx,mod_idx = 2,3

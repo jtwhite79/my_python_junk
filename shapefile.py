@@ -28,6 +28,32 @@ POLYGONM = 25
 MULTIPOINTM = 28
 MULTIPATCH = 31
 
+
+#def load_as_dict(name,attrib_name_list=None):
+#    '''loads all the shapefile shapes and records
+#    only the attributes listed in attrib_name_list are loaded
+#    if None, then all attrib are loaded
+#    '''
+#    #--create the shape instance
+#    shp = Reader(name)
+#    header = shp.dbfHeader()
+#    h_names = []
+#    for item in header:
+#        h_names.append(item[0].upper())
+#    if attrib_name_list is None:
+#        attrib_name_list = []
+#        for item in header:
+#            attrib_name_list.append(item[0])
+#    else:
+#        for a_name in attrib_name_list:
+#            if item[0] not in attrib_name_list:
+#                raise IndexError,'
+#    shapes = shp.shapes()
+
+
+
+
+
 class _Array(array.array):
     """Converts python tuples to lits of the appropritate type.
     Used to unpack different shapefile header parts."""
