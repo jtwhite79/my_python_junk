@@ -157,7 +157,8 @@ class Reader:
         f = self.__getFileObj(self.shp)
         # File length (16-bit word * 2 = bytes)
         f.seek(24)
-        self.shpLength = unpack(">i", f.read(4))[0] * 2
+        string = f.read(4)
+        self.shpLength = unpack(">i", string)[0] * 2
         # Shape type
         f.seek(32)
         self.shapeType= unpack("<i", f.read(4))[0]
@@ -167,6 +168,7 @@ class Reader:
         self.elevation = _Array('d', unpack("<2d", f.read(16)))
         # Measure
         self.measure = _Array('d', unpack("<2d", f.read(16)))
+        print
 
     def __shape(self):
         """Returns the header info and geometry for a single shape."""

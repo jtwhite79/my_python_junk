@@ -1,15 +1,22 @@
 import re
 import calendar
 from datetime import datetime
+import numpy as np
+import pandas
 
 #--record types
 ACCUM = 'accumulated'
 PART = 'partial'
 INDIV = 'individual'
 
+#--global conceptual model start and end dates
+M_START = datetime(1900,1,1)
+M_END = datetime(2012,5,1)
+
 class pws():
     def __init__(self,perm_no,well_no,util,dia,dep,case,\
-                 wfield=['all'],dril=datetime(1900,1,1),aban=datetime(2012,5,1)):
+                 wfield=['all'],dril=M_START,\
+                 aban=M_END):
         self.perm_no = perm_no
         self.well_no = well_no     
         self.util = util        
@@ -19,7 +26,14 @@ class pws():
         self.dia = dia
         self.dep = dep
         self.case = case
-        self.records = {}
+        self.records = {}        
+        #self.build_active_series()
+    
+    def build_active_series(self):
+        d_range = pandas.DateRange(M_START,M_END,offset=pandas.DateOffset())
+        ts_daily = pandas.Series(np.nan,index=d_range)
+        ts_daily[self.dril:self.aban] = True
+        self.active = ts_daily
     
     def active(self,dt):
         if dt >= self.dril and dt <= self.aban:

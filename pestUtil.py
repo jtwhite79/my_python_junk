@@ -1,5 +1,7 @@
 import re
+import os
 import numpy as np 
+from datetime import datetime
 
 
 prgp_reg = re.compile('\* parameter groups')
@@ -14,6 +16,7 @@ end_reg = re.compile('completed')
 
 vario_type_dict = {'spherical':'1','exponential':'2','gaussian':'3','power':'4'}
 structure_list = [['STRUCTURE',['NUGGET','TRANSFORM','NUMVARIOGRAM',['VARNAME','CONTRIB']]],['VARIOGRAM',['VARTYPE','BEARING','A','ANISOTROPY']]]
+
 
 
 def gslib_2_smp(fname,out_ftype='.dat',xname='X',yname='Y'):
@@ -51,17 +54,113 @@ def gslib_2_smp(fname,out_ftype='.dat',xname='X',yname='Y'):
     zonelist = np.ones(len(xlist))
     namelist = ['point'+str(i+1) for i in range(len(xlist))]
     for pname,plist in props.iteritems():
-        smp_name = title+'_'+pname+'.smp'
-        write_smp(smp_name,namelist,xlist,ylist,zonelist,plist)
+        fname = title+'_'+pname+'.smp'
+        write_coords(fname,namelist,xlist,ylist,zonelist,plist)
 
-
-
-def write_smp(fname,namelist,xlist,ylist,zonelist,vlist):
+def write_coords(fname,namelist,xlist,ylist,zonelist,vlist):
     f = open(fname,'w')
     for n,x,y,zone,v in zip(namelist,xlist,ylist,zonelist,vlist):
         f.write(n.ljust(25)+' {0:20.6e} {1:20.6e} {2:20.0f} {3:20.6e}\n'.format(x,y,zone,v))
     f.close()
+
+
+
+class smp():
+    '''simple, poorly designed class to handle site sample file types
+    casts date and time fields to a single datetime object
+    casts records to numpy arrays of [np.datetime64,np.float]
+    '''
+    def __init__(self,fname,date_fmt='%d/%m/%Y',load=False):
+        assert os.path.exists(fname)
+        self.fname = fname
+        self.date_fmt = date_fmt
+        self.site_index = 0
+        self.date_index = 1
+        self.time_index = 2
+        self.value_index = 3
+        if load:
+            self.records = self.load('all')
+        else:
+            self.records = {}
+
+
+
  
+    def load(self,site='all'):
+        '''if site_name is 'all', loads all records
+        '''        
+                   
+        if site.upper() != 'ALL':                        
+            f = self.readto(self.site_index,site)
+            record = []
+            while True:
+                line = self.parse_line(f.readline())
+                if line[self.site_index] != site:
+                    f.close()
+                    return {site:np.array(record)}
+                record.append(line[1:])
+        else:            
+            f = open(self.fname,'r')
+            records = {}
+            for line in f:
+                #print line.strip()
+                if line.strip() == '':
+                    break
+                line = self.parse_line(line)
+                if line[self.site_index] not in records.keys():
+                    records[line[0]] = [line[1:]]
+                else:
+                    records[line[0]].append(line[1:])
+            f.close()
+            #--cast each site record to a numpy array
+            for site,record in records.iteritems():
+                records[site] = np.array(record)
+            return records
+    
+    def active(self,dt):
+        active_list = [[],[]]
+        for site,record in self.records.iteritems():
+            act = record[np.where(record[:,0]==dt)]                                    
+            if act.shape[0] > 0:                
+                active_list[0].append(site)
+                active_list[1].append(act[0,2])                
+        return active_list
+    
+                                              
+    def getunique(self,line_index):
+        f = open(self.fname,'r')
+        unique = []
+        for line in f:
+            if line.strip() == '':
+                break
+            u = self.parse_line(line)[line_index]
+            if u not in unique:
+                unique.append(u)
+        f.close()
+        return unique                  
+
+    def parse_line(self,line):
+        ''' parse the string line into [name,datetime,None,value]
+        '''
+        raw = line.strip().split()        
+        site = raw[self.site_index]
+        dt = datetime.strptime(raw[self.date_index]+' '+raw[self.time_index],self.date_fmt+' %H:%M:%S')
+        val = float(raw[3])
+        return [site,dt,None,val]
+
+    def readto(self,line_index,value):
+        f = open(self.fname,'r')
+        while True:
+            last = f.tell()
+            line = f.readline()
+            if line.strip() == '':
+                raise IndexError,'value ',+str(value)+' not found in column '+str(line_index)
+            line = self.parse_line(line)
+            if line[line_index] == value:
+                f.seek(last)
+                return f
+        
+                
             
 
 
@@ -562,85 +661,6 @@ def load_rmr_results(filename,byRoot=False):
  
     
     
-class c_node():
-    
-    def __init__(self,n_idx,work_dir,init_time):
-        self.n_idx = n_idx
-        self.work_dir = work_dir
-        self.init_time = init_time
-        self.start_times = []
-        self.end_times = []
-        self.run_times = []
-        self.avg_run = None
-        self.std_run = None
-    def __repr__(self):
-        return self.n_idx
-    def __eq__(self,val):
-        if isinstance(val,int):
-            if self.n_idx == val:
-                return True
-            return False
-        elif instance(val,str):
-            if self.wd == val:
-                return True
-            return False
-    
-    def calc_run_stats(self):
-        #for i,s in enumerate(self.start_times):            
-        for e,s in zip(self.end_times,self.start_times):
-            #rtime = self.end_times[i] - s
-            rtime = e - s
-            self.run_times.append(rtime)
-        tot = 0.0
-        for r in self.run_times:
-            tot += r            
-        self.avg_run = tot / len(self.run_times)
-        
-        var = 0.0
-        for r in self.run_times:
-            var += (r - self.avg_run)**2
-        var /= len(self.run_times)
-        self.std_run = var**0.5            
-        
-        
-#--need python 2.7       
-#def get_control_dict(ctl_file='pest_control.dat'):
-#    control = OrderedDict()
-#    
-#    line_pos = OrderedDict()   
-#    f = open(ctl_file,'r')
-#    pcf = f.readline()    
-#    line_count = 0
-#    for line in f: 
-#        raw = line.strip().split()
-#        for r in raw:            
-#            control[r] = ''
-#            line_pos[r] = line_count
-#        line_count += 1
-#    f.close()
-#    return control,line_pos
-                    
-#def load_control(pst_file,control=None):
-#     
-#    if control == None:
-#        sections,control = get_control_dict()
-#    
-#    f = open(pst_file,'r')
-#    pcf = f.readline()
-#    
-#    for ctl_sec in control:
-#        for 
-        
-            
-    
-
-#--for testing
-#pst_file = 'pest_struct.pst'
-#par_groups = load_par_groups(pst_file,cast=True)
-#par = load_par(pst_file)
-#print par[6]
-#obs_groups = load_obs_groups(pst_file)
-#obs = load_obs(pst_file,cast=True)
 
                
 
