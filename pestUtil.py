@@ -125,6 +125,22 @@ class smp():
                 active_list[0].append(site)
                 active_list[1].append(act[0,2])                
         return active_list
+
+    def get_site(self,findsite):
+        #site_list = [[],[],[]]
+        d = []
+        v = []
+        retsite = ''
+        for site,record in self.records.iteritems():
+            if site == findsite:
+                retsite = site
+                for r in record:
+                    #site_list[0].append(site)
+                    #site_list[1].append(r[0])                
+                    #site_list[2].append(r[2])                
+                    d.append(r[0])                
+                    v.append(r[2])                
+        return retsite, d, v
     
                                               
     def getunique(self,line_index):
