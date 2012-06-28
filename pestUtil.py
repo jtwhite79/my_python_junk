@@ -1,7 +1,9 @@
 import re
 import os
-import numpy as np 
 from datetime import datetime
+import numpy as np 
+import pandas
+
 
 
 prgp_reg = re.compile('\* parameter groups')
@@ -67,10 +69,9 @@ def write_coords(fname,namelist,xlist,ylist,zonelist,vlist):
 
 class smp():
     '''simple, poorly designed class to handle site sample file types
-    casts date and time fields to a single datetime object
-    casts records to numpy arrays of [np.datetime64,np.float]
+    casts date and time fields to a single datetime object    
     '''
-    def __init__(self,fname,date_fmt='%d/%m/%Y',load=False):
+    def __init__(self,fname,date_fmt='%d/%m/%Y',load=False,pandas=False):
         assert os.path.exists(fname)
         self.fname = fname
         self.date_fmt = date_fmt
@@ -78,15 +79,16 @@ class smp():
         self.date_index = 1
         self.time_index = 2
         self.value_index = 3
+        self.pandas = pandas
         if load:            
-            self.records = self.load('all')
-            
+            self.records = self.load('all')            
         else:
             self.records = {}
 
- 
     def load(self,site='all'):
         '''if site_name is 'all', loads all records
+        if self.pandas, then load('all') returns a pandas datafram
+        and load() returns a pandas series indexed by date
         '''                           
         if site.upper() != 'ALL':                        
             f = self.read_to(self.site_index,site)
@@ -98,9 +100,13 @@ class smp():
                 pline = self.parse_line(line)                                   
                 if pline[self.site_index] != site:
                     break
-                record.append(line[1:])
+                record.append(pline[1:])
             f.close()
-            return {site:np.array(record)}
+            record = np.array(record)
+            if self.pandas:                
+                return pandas.Series(record[:,2],index=record[:,0],name=site)
+            else:
+                return {site:np.array(record)}
         else:  
             l_count = 0          
             f = open(self.fname,'r')
@@ -119,29 +125,69 @@ class smp():
             #--cast each site record to a numpy array
             for site,record in records.iteritems():
                 records[site] = np.array(record)
-            return records
+            if self.pandas:
+                return self.records2dataframe(records)
+            else:
+                return records
     
+
+    def records2dataframe(self,records):
+        ''' to cast the dict records to a pandas dataframe
+        '''
+        #--use the first record as the seed for the dataframe
+        sites = records.keys()
+        r1 = records[sites[0]]        
+        dict = {'date':r1[:,0],sites[0]:r1[:,2]}
+        df = pandas.DataFrame(dict)
+        for site in sites[1:]:
+            record = records[site]            
+            dict = {'date':record[:,0],site:record[:,2]}
+            df2 = pandas.DataFrame(dict)                
+            df = pandas.merge(df,df2,how='outer',right_on='date',left_on='date')
+        df.index = df['date']
+        df.pop('date')
+        return df
+
+
     def active(self,dt):
-        active_list = [[],[]]
-        for site,record in self.records.iteritems():
-            act = record[np.where(record[:,0]==dt)]                                    
-            if act.shape[0] > 0:                
-                active_list[0].append(site)
-                active_list[1].append(act[0,2])                
-        return active_list
+        if self.pandas:       
+            try:
+                slice = self.records.xs(dt)
+            except KeyError:
+                return [[],[]]
+            slice2 = slice.dropna()
+            return slice2.index.tolist(),slice2.values.tolist()
+        else:
+            active_list = [[],[]]
+            for site,record in self.records.iteritems():
+                act = record[np.where(record[:,0]==dt)]                                    
+                if act.shape[0] > 0:                
+                    active_list[0].append(site)
+                    active_list[1].append(act[0,2])                
+            return active_list
 
     
-    def get_site(self,findsite):                
-        for site,record in self.records.iteritems():
-            if site == findsite:                
-                d = record[:,0].tolist()
-                v = record[:,2].tolist()                            
-                return site, d, v
-        raise IndexError('site '+str(findsite)+' not found in self.records')                   
+    def get_site(self,findsite):                        
+        if self.pandas:
+            try:
+                s = self.records[findsite].dropna()                
+                return findsite,s.index.tolist(),s.values.tolist()
+                #return findsite,self.records['date'].dropna().tolist(),self.records[findsite].dropna().tolist()
+            except:
+                raise IndexError('site '+str(findsite)+' not found in self.records')                   
+        else:
+            if findsite != self.records.keys():
+                raise IndexError('site '+str(findsite)+' not found in self.records')                   
+            for site,record in self.records.iteritems():
+                if site == findsite:                
+                    d = record[:,0].tolist()
+                    v = record[:,2].tolist()                            
+                    return site, d, v
+            
                                               
-    def get_unique(self,line_index,needindices=False):
+    def get_unique_from_file(self,line_index,needindices=False):
         '''if needindices, then will also return a 0-based 
-        index offset the first occurence of unique value
+        index offset the first occurence in the file of unique value
         '''
         f = open(self.fname,'r')
         unique = []
