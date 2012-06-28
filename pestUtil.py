@@ -104,7 +104,7 @@ class smp():
             f.close()
             record = np.array(record)
             if self.pandas:                
-                return pandas.Series(record[:,2],index=record[:,0],name=site)
+                return pandas.Series(record[:,1],index=record[:,0],name=site)
             else:
                 return {site:np.array(record)}
         else:  
@@ -137,11 +137,11 @@ class smp():
         #--use the first record as the seed for the dataframe
         sites = records.keys()
         r1 = records[sites[0]]        
-        dict = {'date':r1[:,0],sites[0]:r1[:,2]}
+        dict = {'date':r1[:,0],sites[0]:r1[:,1]}
         df = pandas.DataFrame(dict)
         for site in sites[1:]:
             record = records[site]            
-            dict = {'date':record[:,0],site:record[:,2]}
+            dict = {'date':record[:,0],site:record[:,1]}
             df2 = pandas.DataFrame(dict)                
             df = pandas.merge(df,df2,how='outer',right_on='date',left_on='date')
         df.index = df['date']
@@ -163,7 +163,7 @@ class smp():
                 act = record[np.where(record[:,0]==dt)]                                    
                 if act.shape[0] > 0:                
                     active_list[0].append(site)
-                    active_list[1].append(act[0,2])                
+                    active_list[1].append(act[0,1])                
             return active_list
 
     
@@ -175,13 +175,13 @@ class smp():
                 #return findsite,self.records['date'].dropna().tolist(),self.records[findsite].dropna().tolist()
             except:
                 raise IndexError('site '+str(findsite)+' not found in self.records')                   
-        else:
-            if findsite != self.records.keys():
+        else:           
+            if findsite not in self.records.keys():
                 raise IndexError('site '+str(findsite)+' not found in self.records')                   
             for site,record in self.records.iteritems():
                 if site == findsite:                
                     d = record[:,0].tolist()
-                    v = record[:,2].tolist()                            
+                    v = record[:,1].tolist()                            
                     return site, d, v
             
                                               
@@ -216,7 +216,7 @@ class smp():
         site = raw[self.site_index]
         dt = datetime.strptime(raw[self.date_index]+' '+raw[self.time_index],self.date_fmt+' %H:%M:%S')
         val = float(raw[3])
-        return [site,dt,None,val]
+        return [site,dt,val]
 
     def read_to(self,line_index,value):
         f = open(self.fname,'r')
