@@ -78,39 +78,43 @@ class smp():
         self.date_index = 1
         self.time_index = 2
         self.value_index = 3
-        if load:
+        if load:            
             self.records = self.load('all')
+            
         else:
             self.records = {}
-
-
 
  
     def load(self,site='all'):
         '''if site_name is 'all', loads all records
-        '''        
-                   
+        '''                           
         if site.upper() != 'ALL':                        
-            f = self.readto(self.site_index,site)
+            f = self.read_to(self.site_index,site)
             record = []
             while True:
-                line = self.parse_line(f.readline())
-                if line[self.site_index] != site:
-                    f.close()
-                    return {site:np.array(record)}
+                line = f.readline()
+                if line.strip() == '':
+                    break                        
+                pline = self.parse_line(line)                                   
+                if pline[self.site_index] != site:
+                    break
                 record.append(line[1:])
-        else:            
+            f.close()
+            return {site:np.array(record)}
+        else:  
+            l_count = 0          
             f = open(self.fname,'r')
             records = {}
             for line in f:
                 #print line.strip()
+                l_count += 1
                 if line.strip() == '':
-                    break
-                line = self.parse_line(line)
-                if line[self.site_index] not in records.keys():
-                    records[line[0]] = [line[1:]]
+                    break                             
+                pline = self.parse_line(line)
+                if pline[self.site_index] not in records.keys():
+                    records[pline[0]] = [pline[1:]]
                 else:
-                    records[line[0]].append(line[1:])
+                    records[pline[0]].append(pline[1:])                
             f.close()
             #--cast each site record to a numpy array
             for site,record in records.iteritems():
@@ -126,45 +130,49 @@ class smp():
                 active_list[1].append(act[0,2])                
         return active_list
 
-    def get_site(self,findsite):
-        #site_list = [[],[],[]]
-        d = []
-        v = []
-        retsite = ''
-        for site,record in self.records.iteritems():
-            if site == findsite:
-                retsite = site
-                for r in record:
-                    #site_list[0].append(site)
-                    #site_list[1].append(r[0])                
-                    #site_list[2].append(r[2])                
-                    d.append(r[0])                
-                    v.append(r[2])                
-        return retsite, d, v
     
+    def get_site(self,findsite):                
+        for site,record in self.records.iteritems():
+            if site == findsite:                
+                d = record[:,0].tolist()
+                v = record[:,2].tolist()                            
+                return site, d, v
+        raise IndexError('site '+str(findsite)+' not found in self.records')                   
                                               
-    def getunique(self,line_index):
+    def get_unique(self,line_index,needindices=False):
+        '''if needindices, then will also return a 0-based 
+        index offset the first occurence of unique value
+        '''
         f = open(self.fname,'r')
         unique = []
+        indices = []
+        l_count = 0
         for line in f:
             if line.strip() == '':
-                break
+                break            
             u = self.parse_line(line)[line_index]
             if u not in unique:
                 unique.append(u)
+                indices.append(l_count)
+            l_count += 1
         f.close()
-        return unique                  
+        if needindices:
+            return unique,indices
+        else:
+            return unique                  
 
     def parse_line(self,line):
         ''' parse the string line into [name,datetime,None,value]
-        '''
-        raw = line.strip().split()        
+        '''        
+        raw = line.strip().split() 
+        if len(raw) != 4:
+            print raw
         site = raw[self.site_index]
         dt = datetime.strptime(raw[self.date_index]+' '+raw[self.time_index],self.date_fmt+' %H:%M:%S')
         val = float(raw[3])
         return [site,dt,None,val]
 
-    def readto(self,line_index,value):
+    def read_to(self,line_index,value):
         f = open(self.fname,'r')
         while True:
             last = f.tell()
