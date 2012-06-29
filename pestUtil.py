@@ -66,7 +66,6 @@ def write_coords(fname,namelist,xlist,ylist,zonelist,vlist):
     f.close()
 
 
-
 class smp():
     '''simple, poorly designed class to handle site sample file types
     casts date and time fields to a single datetime object    

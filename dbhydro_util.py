@@ -2,17 +2,23 @@ import numpy as np
 import pandas
 from datetime import datetime
 
+
+idx = {'DA':{'STATION':0,'DBKEY':1,'DATE':2,'DATA':3},
+       'BK':{'STATION':2,'DBKEY':3,'DATE':0,'TIME':1,'DATA':4}
+       }
+
+
 def parse_fname(fname):
-    raw = fname.split('.')
-    fdict = {}
-    fdict['site'] = raw[0]
-    fdict['dtype'] = raw[1]
-    fdict['freq'] = raw[2]
+    raw = fname.split('\\')[-1].split('.')
+    fdict = {}   
+    fdict['STATION'] = raw[0]
+    fdict['FREQUECNCY'] = raw[1]
+    fdict['SUM'] = raw[2]
     fdict['strnum'] = int(raw[3])
     s = raw[4]    
     e = raw[5]
-    fdict['sdate'] = datetime.strptime(s,'%Y%m%d')
-    fdict['edate'] = datetime.strptime(e,'%Y%m%d')
+    fdict['START'] = datetime.strptime(s,'%Y%m%d')
+    fdict['END'] = datetime.strptime(e,'%Y%m%d')
     return fdict
 
 
@@ -104,9 +110,7 @@ def create_full_record(p_series_list):
                 pass
             if v != np.nan:
                 full_series[dt] = v
-                #break
-                                                                                    
-        
+                #break                                                                                            
     return full_series        
         
                            
@@ -117,40 +121,64 @@ def save_series(fname,p_series):
     f_out.close()        
 
 
-def load_series(fname):
-    
-    #--parse the filename 
-    print 'loading file: ',fname
-    
-    f = open(fname,'r')
+def load_series(fname,aspandas=False):        
+    f_dict,prob = parse_fname(fname)                   
+    h_dict = load_header(fname)    
+    print 'loading dbkey: ',h_dict['DBKEY']
+    print 'from file: ',fname    
+    iidx = idx[h_dict['FQ']]   
+    f = open(fname,'r')                
     #--read the first 3 lines (headers)
-    h1,h2,h3 = f.readline(),f.readline(),f.readline()
+    h1,h2,h3 = f.readline(),f.readline(),f.readline()            
     rec,flg = [],[]
     for line in f:
-        dt,val,fflg = parse_line(line)
-        rec.append([dt,val])
-        flg.append(fflg)
+        dt,val,fflg = parse_line(line,iidx,prob)
+        if val is not np.NaN:
+            rec.append([dt,val])
+            flg.append(fflg)
         
     f.close()
     print '--- ',len(rec),' records'
-    return np.array(rec),flg
+    rec = np.array(rec)
+    if aspandas:
+        
+        df = pandas.DataFrame({'datetime':rec[:,0],h_dict['DBKEY']:rec[:,1]})
+        df.index = df['datetime']
+        #s = pandas.Series(rec[:,1],index=rec[:,0],name=h_dict['DBKEY'])        
+        return df
+    else:
+        return np.array(rec),flg
 
+def load_header(fname):
+    
+    #--read the first 3 lines (headers)
+    hkeys,hvalues = f.readline().strip().split(','),f.readline().strip().split(',')   
+    h_dict = {}
+    for hkey,hvalue in zip(hkeys,hvalues):
+        h_dict[hkey] = hvalue    
+    f.close()
+    return h_dict
 
-def parse_line(line):
+def parse_line(line,idx):
     raw = line.strip().split(',')
-    dt =  datetime.strptime(raw[0]+' '+raw[1],'%d-%b-%Y %H:%M') 
+    if 'TIME' not in idx.keys():
+        dt = datetime.strptime(raw[idx['DATE']],'%d-%b-%Y')
+    else:
+        dt =  datetime.strptime(raw[idx['DATE']]+' '+raw[idx['TIME']],'%d-%b-%Y %H:%M') 
     flg = None
-    if len(raw) > 6:
-        flg = raw[5]
+    #if len(raw) > 6:
+    if 'FLAG' in idx.keys():
+        flg = raw[idx['FLAG']]
         #print flg
     try:
-        val = float(raw[4])     
+        val = float(raw[idx['DATA']])     
     except ValueError:
-        if raw[4].upper() == 'M':
+        v = raw[idx['DATA']].upper() 
+        if v == 'M' or v == 'X' or v == 'N':
             val = np.NaN
-        elif raw[4].upper() == 'PROVISIONAL':
-            val = np.NaN
+        elif v == 'PROVISIONAL':
+            val = np.NaN        
         else:
             print line
-            raise ValueError, 'unrecognized non-float in value field: '+str(raw[4])
+            raise ValueError, 'unrecognized non-float in value field: '+str(raw[idx['DATA']])
     return dt,val,flg

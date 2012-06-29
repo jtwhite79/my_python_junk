@@ -29,26 +29,80 @@ MULTIPOINTM = 28
 MULTIPATCH = 31
 
 
-#def load_as_dict(name,attrib_name_list=None):
-#    '''loads all the shapefile shapes and records
-#    only the attributes listed in attrib_name_list are loaded
-#    if None, then all attrib are loaded
-#    '''
-#    #--create the shape instance
-#    shp = Reader(name)
-#    header = shp.dbfHeader()
-#    h_names = []
-#    for item in header:
-#        h_names.append(item[0].upper())
-#    if attrib_name_list is None:
-#        attrib_name_list = []
-#        for item in header:
-#            attrib_name_list.append(item[0])
-#    else:
-#        for a_name in attrib_name_list:
-#            if item[0] not in attrib_name_list:
-#                raise IndexError,'
-#    shapes = shp.shapes()
+def writer_like(shape_name):
+    '''create a new writer instance with the same fields as 
+    the existing shapefile "shape_name.shp"
+    '''
+    shp = Reader(shape_name)
+    header = shp.dbfHeader()
+    shp_new = Writer()
+    for item in header:
+        shp_new.field(item[0],fieldType=item[1],size=item[2],decimal=item[3])
+    return shp_new
+
+def add_attribute(new_attirb,shape_name):
+    '''add a new attribute to an existing shapefile
+    new attribute dict = {'name','type','size','decimal','values'}
+    '''
+    shp = Reader(shape_name)
+    shp_new = writer_like(shape_name)
+    assert len(new_attrib['values']) == shp.numRecords,'attribute list length not equal to'+\
+                                   ' number of shapes in '+str(shape_name)
+    shp.field(new_attrib['name'],fieldType=new_attrib['type'],size=new_attrib['size'],decimal=new_attrib['decimal'])
+    for i in range(shp.numRecords):
+        for i in range(shp.numRecords):
+            this_shape = shp.shape(i)
+            this_rec = shp.record(i)
+            this_rec.append(new_attrib['values'][i])
+            shp_new.poly([this_shape.points],shapeType=this_shape.shapeType)
+            shp_new.record(this_rec)
+    return shp_new
+
+def load_as_dict(shape_name,attrib_name_list=None):
+    '''loads all the shapefile shapes and records
+    only the attributes listed in attrib_name_list are loaded
+    if None, then all attrib are loaded
+    returns shapes,records
+    '''    
+    #--create the shape instance
+    shp = Reader(shape_name)
+    #--get the dbf header
+    header = shp.dbfHeader()    
+    #--a dict to track the attribute indexs in the record lists
+    attrib_idx = {}    
+    #--if no attribute list was passed, use all attributes
+    if attrib_name_list is None:
+        attrib_name_list = []
+        for i,item in enumerate(header):            
+            attrib_idx[item[0]] = i
+            attrib_name_list.append(item[0])
+    #--otherwise, make sure the requested attributes exists    
+    else:
+        for i,item in enumerate(header):
+            if item[0] not in attrib_name_list:
+                raise IndexError,'shapefile has no attribute named ',a_name
+            else:
+                attrib_idx[item[0]] = i    
+    #--get shapes
+    shapes = shp.shapes()
+    #--seed records dict with empty lists
+    records = {}
+    for a_name,a_idx in attrib_idx.iteritems():
+        records[a_name] = []
+    #--loop over each record, extracting the requested attributes
+    for i in range(shp.numRecords):
+        rec = shp.record(i)
+        for a_name,a_idx in attrib_idx.iteritems():
+            records[a_name].append(rec[a_idx])
+    return shapes,records
+
+def load_attrib_idx(shape_name):
+    shp = Reader(shape_name)
+    header = shp.dbfHeader()
+    attrib_idx = {}
+    for i,item in enumerate(header):
+        attrib_idx[item[0]] = i
+    return attrib_idx
 
 
 
