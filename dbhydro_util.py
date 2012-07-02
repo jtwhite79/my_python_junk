@@ -13,13 +13,46 @@ def parse_fname(fname):
     fdict = {}   
     fdict['STATION'] = raw[0]
     fdict['FREQUECNCY'] = raw[1]
-    fdict['SUM'] = raw[2]
+    fdict['STAT'] = raw[2]
     fdict['strnum'] = int(raw[3])
     s = raw[4]    
     e = raw[5]
     fdict['START'] = datetime.strptime(s,'%Y%m%d')
     fdict['END'] = datetime.strptime(e,'%Y%m%d')
     return fdict
+
+#def interp_precip_pandas(fname):
+#    '''interpolate a break point precip record to daily sum values
+#    DON'T USE - precip breakpoint data are accumulated to the day of reading 
+#    (the breakpoint).  Too dangerous to spread precip back over previous days
+#    '''
+#    #--load the pandas series
+#    series = load_series(fname,aspandas=True)
+#    #--cast the first and last day to whole days
+#    s_date = datetime(year=series.index[0].year,month=series.index[0].month,day=series.index[0].day)
+#    e_date = datetime(year=series.index[-1].year,month=series.index[-1].month,day=series.index[-1].day)
+#    #--create the date range 
+#    dr1day = pandas.DateRange(s_date,e_date,offset=pandas.DateOffset())
+#    #--use groupby to create daily grouping
+#    grouped = series.groupby(dr1day.asof)
+#    #--a new dataframe of summed daily values
+#    sums = grouped.sum()    
+#    #--since it is breakpoint, assume no entry means zero rain
+#    sums_filled = sums.fillna(0.0)
+#    #--form new file name - ugly
+#    f_dict = parse_fname(fname)
+#    f_dict['FREQUENCY'] = 'DA'
+#    f_dict['STAT'] = 'SUM'
+#    f_dict['START'] = f_dict['START'].strftime('%Y%m%d')
+#    f_dict['END'] = f_dict['END'].strftime('%Y%m%d')
+#    raw = fname.split('\\')
+#    new_fname = '\\'.join(raw[:-1])+'\\'
+#    new_fname += f_dict['STATION']+'.'+f_dict['FREQUENCY']+'.'+f_dict['STAT']+'.'+\
+#                 str(f_dict['strnum'])+'.'+str(f_dict['START'])+'.'+str(f_dict['END'])+'..dat'        
+#    print sums_filled[sums_filled.columns[0]]
+#    #--save the new daily summed filled series
+#    save_series(new_fname,sums_filled)
+
 
 
 def interp_breakpoint(series,flag,threshold=0.0):
@@ -96,8 +129,7 @@ def create_full_record(p_series_list):
     d_range = pandas.DateRange(start=min_date,end=max_date,offset=pandas.core.datetools.day)
     full_series = pandas.TimeSeries(np.ones(len(d_range))*np.nan,d_range)
     #print d_range   
-    
-    #--since I can't get all of the pandas functionality to run...
+        
     for dt,val in full_series.iteritems():
         #--try to find an entry in one of the series for this day
         v = np.nan
@@ -114,15 +146,24 @@ def create_full_record(p_series_list):
     return full_series        
         
                            
-def save_series(fname,p_series):
+def save_series(fname,df,write_col=None):
+    '''save a pandas dataframe instance in an acceptable format
+    expects the index to be a datetime
+    default = writes the first entry returned by DataFrame.columns
+    '''
+    cols = df.columns
+    if write_col is None:
+        write_col = cols[0]
     f_out = open(fname,'w')
-    for dt,r in p_series.iteritems():
-        f_out.write(dt.strftime('%Y%m%d')+',{0:15.7e}\n'.format(r))
+    #for dt,r in df.iteritems():
+    for dt,val in zip(df.index,df[write_col]):
+        f_out.write(dt.strftime('%Y%m%d')+',{0:15.7e}\n'.format(val))
     f_out.close()        
+    return
 
 
 def load_series(fname,aspandas=False):        
-    f_dict,prob = parse_fname(fname)                   
+    f_dict = parse_fname(fname)                   
     h_dict = load_header(fname)    
     print 'loading dbkey: ',h_dict['DBKEY']
     print 'from file: ',fname    
@@ -132,8 +173,11 @@ def load_series(fname,aspandas=False):
     h1,h2,h3 = f.readline(),f.readline(),f.readline()            
     rec,flg = [],[]
     for line in f:
-        dt,val,fflg = parse_line(line,iidx,prob)
-        if val is not np.NaN:
+        dt,val,fflg = parse_line(line,iidx)
+        if aspandas:
+            rec.append([dt,val])
+            flg.append(fflg)
+        elif val is not np.NaN:
             rec.append([dt,val])
             flg.append(fflg)
         
@@ -144,13 +188,14 @@ def load_series(fname,aspandas=False):
         
         df = pandas.DataFrame({'datetime':rec[:,0],h_dict['DBKEY']:rec[:,1]})
         df.index = df['datetime']
+        #df.pop('datetime')
         #s = pandas.Series(rec[:,1],index=rec[:,0],name=h_dict['DBKEY'])        
         return df
     else:
         return np.array(rec),flg
 
-def load_header(fname):
-    
+def load_header(f):
+    f = open(f,'r')
     #--read the first 3 lines (headers)
     hkeys,hvalues = f.readline().strip().split(','),f.readline().strip().split(',')   
     h_dict = {}
