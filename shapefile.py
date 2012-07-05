@@ -11,6 +11,7 @@ import os
 import time
 import array
 from datetime import datetime
+import numpy as np
 #
 # Constants for shape types
 NULL = 0
@@ -40,28 +41,32 @@ def writer_like(shape_name):
         shp_new.field(item[0],fieldType=item[1],size=item[2],decimal=item[3])
     return shp_new
 
-def add_attribute(new_attirb,shape_name):
+def add_attribute(new_attirbs,shape_name):
     '''add a new attribute to an existing shapefile
-    new attribute dict = {'name','type','size','decimal','values'}
+    new attribs is a list of  dicts = [{'name','type','size','decimal','values'}]
     '''
     shp = Reader(shape_name)
     shp_new = writer_like(shape_name)
-    assert len(new_attrib['values']) == shp.numRecords,'attribute list length not equal to'+\
-                                   ' number of shapes in '+str(shape_name)
-    shp.field(new_attrib['name'],fieldType=new_attrib['type'],size=new_attrib['size'],decimal=new_attrib['decimal'])
-    for i in range(shp.numRecords):
+    if not (isinstance(new_attribs,list)):
+        new_attribs = [new_attribs]
+    for new_attrib in new_attribs:
+        assert len(new_attrib['values']) == shp.numRecords,'attribute list length not equal to'+\
+                                       ' number of shapes in '+str(shape_name)
+        shp.field(new_attrib['name'],fieldType=new_attrib['type'],size=new_attrib['size'],decimal=new_attrib['decimal'])
         for i in range(shp.numRecords):
-            this_shape = shp.shape(i)
-            this_rec = shp.record(i)
-            this_rec.append(new_attrib['values'][i])
-            shp_new.poly([this_shape.points],shapeType=this_shape.shapeType)
-            shp_new.record(this_rec)
+            for i in range(shp.numRecords):
+                this_shape = shp.shape(i)
+                this_rec = shp.record(i)
+                this_rec.append(new_attrib['values'][i])
+                shp_new.poly([this_shape.points],shapeType=this_shape.shapeType)
+                shp_new.record(this_rec)
     return shp_new
 
 def load_as_dict(shape_name,attrib_name_list=None):
     '''loads all the shapefile shapes and records
     only the attributes listed in attrib_name_list are loaded
     if None, then all attrib are loaded
+    tries to cast records values as np arrays
     returns shapes,records
     '''    
     #--create the shape instance
@@ -78,11 +83,14 @@ def load_as_dict(shape_name,attrib_name_list=None):
             attrib_name_list.append(item[0])
     #--otherwise, make sure the requested attributes exists    
     else:
+        attrib_names = []
         for i,item in enumerate(header):
-            if item[0] not in attrib_name_list:
-                raise IndexError,'shapefile has no attribute named ',a_name
-            else:
-                attrib_idx[item[0]] = i    
+            attrib_names.append(item[0])
+        for a_name in attrib_name_list:
+                if a_name not in attrib_names:
+                    raise IndexError,'shapefile has no attribute named '+str(item[0])
+                else:
+                    attrib_idx[a_name] = attrib_names.index(a_name)    
     #--get shapes
     shapes = shp.shapes()
     #--seed records dict with empty lists
@@ -94,6 +102,14 @@ def load_as_dict(shape_name,attrib_name_list=None):
         rec = shp.record(i)
         for a_name,a_idx in attrib_idx.iteritems():
             records[a_name].append(rec[a_idx])
+    
+    #--try to cast records to numpy arrays
+    for a_name,a_list in records.iteritems():
+        try:
+            a = np.array(a_list) 
+        except:
+            a = a_list
+        records[a_name] = a
     return shapes,records
 
 def load_attrib_idx(shape_name):
@@ -103,8 +119,6 @@ def load_attrib_idx(shape_name):
     for i,item in enumerate(header):
         attrib_idx[item[0]] = i
     return attrib_idx
-
-
 
 
 
@@ -221,8 +235,7 @@ class Reader:
         # Elevation
         self.elevation = _Array('d', unpack("<2d", f.read(16)))
         # Measure
-        self.measure = _Array('d', unpack("<2d", f.read(16)))
-        print
+        self.measure = _Array('d', unpack("<2d", f.read(16)))       
 
     def __shape(self):
         """Returns the header info and geometry for a single shape."""
