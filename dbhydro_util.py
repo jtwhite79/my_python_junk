@@ -10,13 +10,14 @@ idx = {'DA':{'STATION':0,'DBKEY':1,'DATE':2,'DATA':3},
 
 def parse_fname(fname):
     raw = fname.split('\\')[-1].split('.')
-    fdict = {}   
-    fdict['STATION'] = raw[0]
-    fdict['FREQUECNCY'] = raw[1]
-    fdict['STAT'] = raw[2]
-    fdict['strnum'] = int(raw[3])
-    s = raw[4]    
-    e = raw[5]
+    fdict = {} 
+    fdict['DBKEY'] = raw[0]  
+    fdict['STATION'] = raw[1]
+    fdict['FREQUECNCY'] = raw[2]
+    fdict['STAT'] = raw[3]
+    fdict['strnum'] = int(raw[4])
+    s = raw[5]    
+    e = raw[6]
     fdict['START'] = datetime.strptime(s,'%Y%m%d')
     fdict['END'] = datetime.strptime(e,'%Y%m%d')
     return fdict
@@ -172,7 +173,11 @@ def load_series(fname,aspandas=False):
     #--read the first 3 lines (headers)
     h1,h2,h3 = f.readline(),f.readline(),f.readline()            
     rec,flg = [],[]
-    for line in f:
+    #for line in f:
+    while True:
+        line = f.readline()
+        if line == '':
+            break
         dt,val,fflg = parse_line(line,iidx)
         if aspandas:
             rec.append([dt,val])

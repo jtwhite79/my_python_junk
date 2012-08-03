@@ -29,6 +29,24 @@ POLYGONM = 25
 MULTIPOINTM = 28
 MULTIPATCH = 31
 
+def load_shape_list(shape_name):
+    shp = Reader(shape_name)
+    shapes = shp.shapes()
+    shape_list = []
+    for shape in shapes:
+        if shape.shapeType == POLYLINE:            
+            xs,ys = [],[]
+            points = shape.points
+            for [x,y] in points:
+                xs.append(x)
+                ys.append(y)
+            shape_list.append(np.array([xs,ys]))
+        else:
+            raise NotImplementedError('only polylines are supported')
+    return shape_list
+
+
+
 
 def writer_like(shape_name):
     '''create a new writer instance with the same fields as 
@@ -74,40 +92,44 @@ def load_as_dict(shape_name,attrib_name_list=None):
     #--get the dbf header
     header = shp.dbfHeader()    
     #--a dict to track the attribute indexs in the record lists
-    attrib_idx = {}    
+    attrib_idx = {}        
     #--if no attribute list was passed, use all attributes
     if attrib_name_list is None:
-        attrib_name_list = []
+        attrib_name_list = []       
         for i,item in enumerate(header):            
-            attrib_idx[item[0]] = i
-            attrib_name_list.append(item[0])
+            attrib_idx[item[0]] = i          
+            attrib_name_list.append(item[0])            
     #--otherwise, make sure the requested attributes exists    
     else:
-        attrib_names = []
+        attrib_names = []        
         for i,item in enumerate(header):
             attrib_names.append(item[0])
         for a_name in attrib_name_list:
                 if a_name not in attrib_names:
-                    raise IndexError,'shapefile has no attribute named '+str(item[0])
+                    raise IndexError,'shapefile has no attribute named '+str(a_name)
                 else:
-                    attrib_idx[a_name] = attrib_names.index(a_name)    
+                    attrib_idx[a_name] = attrib_names.index(a_name)                        
     #--get shapes
     shapes = shp.shapes()
     #--seed records dict with empty lists
     records = {}
+    rec_type = {}
     for a_name,a_idx in attrib_idx.iteritems():
         records[a_name] = []
+        rec_type[a_name] = header[a_idx][1]
     #--loop over each record, extracting the requested attributes
     for i in range(shp.numRecords):
         rec = shp.record(i)
         for a_name,a_idx in attrib_idx.iteritems():
             records[a_name].append(rec[a_idx])
     
-    #--try to cast records to numpy arrays
+
+
+    #--cast records to numpy arrays
     for a_name,a_list in records.iteritems():
-        try:
+        if rec_type[a_name].upper() != 'C':
             a = np.array(a_list) 
-        except:
+        else:
             a = a_list
         records[a_name] = a
     return shapes,records

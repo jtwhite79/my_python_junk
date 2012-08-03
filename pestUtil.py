@@ -1,6 +1,7 @@
 import re
 import os
 from datetime import datetime
+import shutil
 import numpy as np 
 import pandas
 
@@ -11,6 +12,8 @@ par_reg = re.compile('\* parameter data')
 obgp_reg = re.compile('\* observation groups')
 obs_reg = re.compile('\* observation data')
 regul_reg = re.compile('regul')
+prior_reg = re.compile('\* prior information')
+reg_reg = re.compile('\* regularisation')
 section_reg = re.compile('\*')
 idx_reg = re.compile('index')
 start_reg = re.compile('commencing')
@@ -276,6 +279,7 @@ def write_vario(v_dict):
     return vstr
 
 
+
 def load_res(res_file,skipRegul=True):
     name_idx,grp_idx = 0,1
     meas_idx,mod_idx = 2,3
@@ -454,6 +458,138 @@ def load_obs_groups(pst_file):
                 
     f.close()
     return obs_groups            
+
+def load_res_pandas(res_file):
+    #f = open(res_file,'r')
+    #header = f.readline().split()
+    df = pandas.read_csv(res_file,sep='\s+',index_col=0)
+    return df
+
+
+def set_2_pareto(pst_name,res_name):
+    '''sets up a generic pareto run from a regularization pst'''
+    #--first update the prior information values and wghts
+    regul = load_regul(pst_name)
+    res = load_res_pandas(res_name)
+    for i,r in enumerate(regul):        
+        regul[i][-2] = '{0:15.6e}'.format(res['Weight'][r[0]])
+        regul[i][-3] = '{0:15.6e}'.format(res['Modelled'][r[0]]) 
+        regul[i][-1] = 'regul'                
+    replace_prior(regul,pst_name)
+    
+    #--build a list of obs names
+    o_names = []
+    for name,group in zip(res.index,res['Group']):
+        if re.search('regul',group,re.I) == None:
+            o_names.append(name)
+
+
+    #--set pareto control sections
+    f = open(pst_name,'r')
+    f_out = open('temp.pst','w')
+    #--set the model to pareto
+    f_out.write(f.readline())
+    f_out.write(f.readline())
+    line = f.readline().strip().split()
+    line[-1] = 'pareto\n'    
+    f_out.write(' '.join(line))
+    #line = f.readline().strip().split()
+    #line[2] = '1'
+    #f_out.write(' '.join(line)+'\n')   
+    wght_start = float(regul[1][-2]) * 0.5
+    wght_final = wght_start * 10
+    num_steps = 20
+    while True:
+        line = f.readline()
+        if line == '':
+            break
+        #--set FORCEN to always_2
+        if prgp_reg.search(line) != None:
+            f_out.write(line)
+            line = f.readline().strip().split()
+            line[4] = 'always_2'
+            f_out.write(' '.join(line)+'\n')
+            line = f.readline().strip().split()
+            line[4] = 'always_2'
+            f_out.write(' '.join(line)+'\n')
+
+        #--set a new obs group for all prior info
+        elif obgp_reg.search(line) != None:
+            f_out.write(line)
+            f_out.write('regul\n')
+            line = f.readline()
+
+        elif reg_reg.search(line) != None:
+            f_out.write('* pareto\n')
+            f_out.write(' regul\n')
+            f_out.write(' {0:10.3f} {1:10.3f} {2:10.0f}\n'.format(wght_start,wght_final,num_steps))
+            f_out.write(' 3 3 3\n')
+            f_out.write(' 0\n')
+            f_out.write(' '+str(len(o_names))+'\n')
+            f_out.write(' '.join(o_names)+'\n')
+            f_out.close()
+            break
+        else:
+            f_out.write(line)
+    shutil.copy('temp.pst',pst_name)
+    
+
+ 
+def replace_prior(regul,pst_name):
+    #--load the existing pst into a nested list
+    f = open(pst_name,'r')
+    f_out = open('temp.pst','w')
+    lines = []
+    while True:
+        line = f.readline()
+        if line == '':
+            break
+        if prior_reg.search(line) != None:
+            f_out.write(line)
+            #--read the pst past the existing prior information
+            while True:
+                line2 = f.readline()
+                if section_reg.match(line2) or line2 == '':
+                    break
+            #--write in the new prior info
+            for r in regul:
+                f_out.write(' '.join(r)+'\n')
+            f_out.write(line2)
+        else:
+            f_out.write(line)
+    f.close()
+    f_out.close()
+    shutil.copy('temp.pst',pst_name)
+
+            
+       
+
+def load_regul(pst_file,group=None,cast=False):
+    f = open(pst_file,'r')    
+    obs = []
+    while True:
+        line = f.readline()
+        if line == '':
+            break
+        if prior_reg.search(line) != None:
+            while True:
+                line2 = f.readline()
+                if section_reg.match(line2) != None or line2 == '':
+                    break
+                raw = line2.strip().split()                
+                if group != None:
+                    try:
+                        if raw[3] in group:
+                            obs.append(raw)                            
+                    except:  
+                        
+                        if raw[3] == group:  
+                            obs.append(raw)
+                else:                
+                    obs.append(raw)
+    f.close()
+    return obs
+
     
 def load_obs(pst_file,group=None,cast=False):
     '''group is a specific obs group or list of obs groups'''

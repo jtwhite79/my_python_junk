@@ -1,5 +1,5 @@
-
 import numpy as np
+from datetime import datetime
 
 ds_13a_h = ['ISTRRCH','ISTRNUM','ISTRCONN','ISTRTYPE','NSTRPTS',\
              'STRCD','STRCD2','STRCD3','STRINV','STRINV2','STRWID',\
@@ -48,6 +48,7 @@ def load_xsec(filename):
     xsec = np.loadtxt(filename,skiprows=len(headers))
     return headers,xsec        
         
+
 
 
 def load_ds4b(filename):
@@ -541,3 +542,23 @@ class ds_13a():
                 s['strcd3'] = 0.5                   
                                     
 
+class ds6():
+    def __init__(self,reaches):
+        self.reaches = reaches
+        
+    def __eq__(self,reaches):
+        if len(self.reaches) != reaches:
+            return False
+        for r,rr in zip(reaches,self.reaches):
+            if r.reach != rr.reach:
+                return False
+        return True                            
+            
+
+
+class reach():
+    def __init__(self,rec_dict):
+        for key,val in rec_dict.iteritems():
+            setattr(self,key.lower(),value)
+        #--add an active datetime attribute
+        self.active = datetime(year=int(self.src_active_n),month=1,day=1)                    
