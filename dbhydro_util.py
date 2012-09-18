@@ -1,11 +1,22 @@
 import numpy as np
 import pandas
-from datetime import datetime
+from datetime import datetime,timedelta
 
 
 idx = {'DA':{'STATION':0,'DBKEY':1,'DATE':2,'DATA':3},
-       'BK':{'STATION':2,'DBKEY':3,'DATE':0,'TIME':1,'DATA':4}
+       'BK':{'STATION':2,'DBKEY':3,'DATE':0,'TIME':1,'DATA':4},
+       'FWM':{'STATION':0,'DBKEY':1,'DATE':2,'DATA':3},
+       'DWR':{'STATION':0,'DBKEY':1,'DATE':2,'TIME':3,'DATA':4},
+       'INST':{'STATION':2,'DBKEY':3,'DATE':0,'TIME':1,'DATA':4}
        }
+
+
+def build_fname(fdict):
+    sdate = fdict['START'].strftime('%Y%m%d')
+    edate = fdict['END'].strftime('%Y%m%d')
+    fname = fdict['DBKEY']+'.'+fdict['STATION']+'.'+fdict['FREQUENCY']+'.'+fdict['STAT']+'.'+str(fdict['strnum'])+'.'+\
+            sdate+'.'+edate+'.'+'.dat'   
+    return fname
 
 
 def parse_fname(fname):
@@ -13,7 +24,7 @@ def parse_fname(fname):
     fdict = {} 
     fdict['DBKEY'] = raw[0]  
     fdict['STATION'] = raw[1]
-    fdict['FREQUECNCY'] = raw[2]
+    fdict['FREQUENCY'] = raw[2]
     fdict['STAT'] = raw[3]
     fdict['strnum'] = int(raw[4])
     s = raw[5]    
@@ -21,6 +32,7 @@ def parse_fname(fname):
     fdict['START'] = datetime.strptime(s,'%Y%m%d')
     fdict['END'] = datetime.strptime(e,'%Y%m%d')
     return fdict
+
 
 #def interp_precip_pandas(fname):
 #    '''interpolate a break point precip record to daily sum values
@@ -55,9 +67,24 @@ def parse_fname(fname):
 #    save_series(new_fname,sums_filled)
 
 
-
-def interp_breakpoint(series,flag,threshold=0.0):
-    '''interpolate the series from breakpoint to daily    
+def interp(series):
+    #--get unique datetime values
+    drange = pandas.date_range(series.index[0],series.index[-1])   
+    df = pandas.DataFrame(index=drange)
+    df = df.combine_first(series)
+    print df
+    print df.dropna()
+    for key,dseries in df.iteritems():
+        print key
+        #df[key] = df[key].resample('D',how='mean')
+        if len(df[key]) != len(df[key].dropna()):
+            df[key] = df[key].interpolate()
+        
+    return df
+    
+    
+def interp_breakpoint(series,threshold=0.0,aspandas=False):
+    '''interpolate the series from breakpoint to daily avg   
     threshold = minimum significant opening
     '''    
     #--cast series datetimes to ordinals
@@ -72,24 +99,23 @@ def interp_breakpoint(series,flag,threshold=0.0):
     last_entry = series[0,1]
     rec = []    
     for day in range(series_ord[0],series_ord[-1]):              
-        series_day = series[np.where(series_ord == day),:][0]
-        #print day,datetime.fromordinal(day),series_day
-        #print series_day.shape
+        series_day = series[np.where(series_ord == day),:][0]        
         if series_day.shape[0] > 0:
-            #--calc time weighted avg
-            v_day = calc_time_avg(last_entry,series_day)
-            #v_day = np.mean(series_day[:,1])
-            #print series_day[-1,1]
-            last_entry = series_day[-1,1]
-            
+            #--calc time weighted avg            
+            v_day = calc_time_avg(last_entry,series_day)            
+            last_entry = series_day[-1,1]            
         else:            
             v_day = last_entry
-        rec.append([datetime.fromordinal(day),v_day])        
-    return np.array(rec)              
+        rec.append([datetime.fromordinal(day),v_day])    
+    if aspandas:
+        df = pandas.DataFrame({'data':rec[:,1]},index=rec[:,0])
+        return df            
+    else:
+        return np.array(rec)              
 
 
 def calc_time_avg(last_entry,series):
-    ''' series is augmented with the previous value at
+    ''' for averaging breakpoint data - series is augmented with the previous value at
     the start of the day
     '''    
     #--if only one entry
@@ -101,9 +127,10 @@ def calc_time_avg(last_entry,series):
         day_start = datetime(year=s_yr,month=s_mon,day=s_day)
         
         #--midnight to the first entry
-        wght = (float((series[0,0] - day_start).seconds)/86400.0)
+        wght = (float((series[0,0] - day_start).seconds)/86400.0)        
         val = wght * last_entry
         
+        series = np.insert(series,0,np.array([day_start,last_entry]),axis=0)
         for i,s in enumerate(series[1:]):
             wght = (float((series[i,0] - series[i-1,0]).seconds)/86400.0)
             val += series[i-1,1] * wght                    
@@ -146,6 +173,9 @@ def create_full_record(p_series_list):
                 #break                                                                                            
     return full_series        
         
+def save_smp(fname,df):
+    need to implement
+
                            
 def save_series(fname,df,write_col=None):
     '''save a pandas dataframe instance in an acceptable format
@@ -190,11 +220,8 @@ def load_series(fname,aspandas=False):
     print '--- ',len(rec),' records'
     rec = np.array(rec)
     if aspandas:
-        
-        df = pandas.DataFrame({'datetime':rec[:,0],h_dict['DBKEY']:rec[:,1]})
-        df.index = df['datetime']
-        #df.pop('datetime')
-        #s = pandas.Series(rec[:,1],index=rec[:,0],name=h_dict['DBKEY'])        
+        dvals = rec[:,1].astype(np.float64)
+        df = pandas.DataFrame({h_dict['DBKEY']:dvals},index=rec[:,0])        
         return df
     else:
         return np.array(rec),flg
@@ -213,6 +240,7 @@ def parse_line(line,idx):
     raw = line.strip().split(',')
     if 'TIME' not in idx.keys():
         dt = datetime.strptime(raw[idx['DATE']],'%d-%b-%Y')
+        dt += timedelta(hours=12)
     else:
         dt =  datetime.strptime(raw[idx['DATE']]+' '+raw[idx['TIME']],'%d-%b-%Y %H:%M') 
     flg = None

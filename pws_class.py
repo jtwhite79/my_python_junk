@@ -8,6 +8,7 @@ import pandas
 ACCUM = 'accumulated'
 PART = 'partial'
 INDIV = 'individual'
+POPEST = 'popestm'
 
 #--global conceptual model start and end dates
 M_START = datetime(1900,1,1)
@@ -43,7 +44,7 @@ class pws():
     def check_wfield(self,nstring):
         for wf in self.wfield:
             #print wf,nstring,re.search(wf,nstring,re.IGNORECASE)
-            if re.search(wf,nstring,re.IGNORECASE) != None:
+            if re.search(wf.strip(),str(nstring),re.IGNORECASE) != None:
                 return True
         return False 
     
@@ -78,7 +79,15 @@ class pws():
                 #f_out.write(dt_str+' {0:15.7e}\n'.format(val))
             f_out.close()                
                 
-                    
+    def write_raw_records(self,odir='.\\'):        
+        for k,rec in self.records.iteritems():
+            fname = self.perm_no+'_'+str(self.well_no).upper()+'_'+k+'.dat'
+            f_out = open(odir+fname,'w')
+            for dt,val in zip(rec[0],rec[1]):
+                dt_str = dt.strftime('%Y%m%d')
+                f_out.write(dt_str+' {0:15.7e}\n'.format(val))                                
+            f_out.close()                
+                                   
            
             
             

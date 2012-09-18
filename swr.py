@@ -1,5 +1,6 @@
 import numpy as np
-from datetime import datetime
+from datetime import datetime,timedelta
+import shapefile
 
 ds_13a_h = ['ISTRRCH','ISTRNUM','ISTRCONN','ISTRTYPE','NSTRPTS',\
              'STRCD','STRCD2','STRCD3','STRINV','STRINV2','STRWID',\
@@ -67,54 +68,45 @@ def load_ds4b(filename):
     return ds4b       
            
 
+
+
 class ds_13a():
     def __init__(self,filename):
         self.filename = filename
-                        
+        self.structures = []                
     
     def load_structures(self):
         f = open(self.filename)
         structures = []
-        #header_lines = []
-        #while True:
-        #    line = f.readline()
-        #    if line.startswith('#'):
-        #        header_lines.append(line)
-        #    else:
-        #        break
-        
+                
         while True:        
             s = {}
-            a_com = []
+            comments = []
             while True:
                 line = f.readline()
                 if line == '':
                     break
                 raw = line.strip().split()                
-                if not raw[0].startswith('#') and line[0] != '#':
-                    #print raw[0]
+                if not raw[0].startswith('#') and line[0] != '#':                    
                     break
                 else:
-                    a_com.extend(raw)
+                    comments.extend(raw)
             if line == '':
-                break    
-            #
-            print raw
+                break               
             s['istrrch'] = int(raw[0])
             s['istrnum'] = int(raw[1])
             s['istrconn'] = int(raw[2])
             s['istrtype'] = int(raw[3])
-            
-            #--
+                        
             if s['istrtype'] == 1:
-                a_com.extend(raw[4:])    
+                comments.extend(raw[4:])    
                 while True:
                     line = f.readline()
                     raw = line.strip().split()
                     if not raw[0].startswith('#') and line[0] != '#':
                         break
                     else:
-                        a_com.extend(raw)                    
+                        comments.extend(raw)                    
                 s['cstrotyp'] = raw[0].upper()
                 s['istrorch'] = int(raw[1])
                 s['cstrolo'] = (raw[2])
@@ -126,33 +118,33 @@ class ds_13a():
                 try:
                     if 'TABDATA' in raw[5].upper():
                         s['cstrval'] = raw[5].upper()
-                        a_com.extend(raw[6:])                                                                                   
+                        comments.extend(raw[6:])                                                                                   
                     else:
-                         a_com.extend(raw[5:])                            
+                         comments.extend(raw[5:])                            
                 except IndexError:
                     pass                                
             
             #--uncontrolled
-            #elif s['istrtype'] == 2:
+            elif s['istrtype'] == 2:
+                raise NotImplementedError('uncontrolled structure type not implemented')
                 
             
             #--pump
-            elif s['istrtype'] == 3:
-                #print raw
+            elif s['istrtype'] == 3:                
                 s['strval'] = float(raw[4])
-                a_com.extend(raw[5:])                   
+                comments.extend(raw[5:])                   
                 while True:
                     line = f.readline() 
                     raw = line.strip().split()
                     if not raw[0].startswith('#') and line[0] != '#':
                         break
                     else:                         
-                         a_com.extend(raw)
+                         comments.extend(raw)
                                                    
                 s['cstrotyp'] = raw[0].upper()
                 s['istrorch'] = int(raw[1])
                 if s['cstrotyp'] == 'FLOW':
-                    raise SystemError, 'cstrotyp=FLOW not supported',s
+                    raise NotImplementedError('cstrotyp=FLOW not supported'+str(s))
                 s['cstrolo'] = (raw[2])
                 if 'TABDATA' in raw[3]:
                     s['cstrcrit'] = raw[3]
@@ -164,16 +156,16 @@ class ds_13a():
                 try:
                     if 'TABDATA' in raw[7].upper():
                         s['cstrval'] = raw[7].upper()
-                        a_com.extend(raw[8:])                                               
+                        comments.extend(raw[8:])                                               
                     else:
-                        a_com.extend(raw[7:])
+                        comments.extend(raw[7:])
                 except IndexError:
                     pass                 
             
             #--stage-discharge
             elif s['istrtype'] == 4:
                 s['nstrpts'] = int(raw[4])
-                a_com.extend(raw[5:])
+                comments.extend(raw[5:])
                 sd_pts = []
                 for i in range(s['nstrpts']):
                     raw = f.readline().strip().split()
@@ -194,7 +186,7 @@ class ds_13a():
                     s['strman'] = float(raw[11])
                     s['istrdir'] = int(raw[12])
                     try:
-                        a_com.extend(raw[13:])
+                        comments.extend(raw[13:])
                     except IndexError:
                         pass
                 #--circular
@@ -203,7 +195,7 @@ class ds_13a():
                     s['strman'] = float(raw[10])
                     s['istrdir'] = int(raw[11])
                     try:
-                        a_com.extend(raw[12:])
+                        comments.extend(raw[12:])
                     except IndexError:
                         pass
                         
@@ -218,7 +210,7 @@ class ds_13a():
                 s['strval'] = float(raw[8])
                 s['istrdir'] = int(raw[9])
                 try:
-                    a_com.extend(raw[10:])
+                    comments.extend(raw[10:])
                 except IndexError:
                     pass                      
             
@@ -232,7 +224,7 @@ class ds_13a():
                 s['strval'] = float(raw[9])                
                 s['istrdir'] = int(raw[10])
                 try:
-                    a_com.extend(raw[11:])
+                    comments.extend(raw[11:])
                 except IndexError:
                     pass                   
                 
@@ -245,7 +237,7 @@ class ds_13a():
                 s['strval'] = float(raw[8])
                 s['istrdir'] = int(raw[9])
                 try:
-                    a_com.extend(raw[10:])
+                    comments.extend(raw[10:])
                 except IndexError:
                     pass
                 while True:
@@ -254,7 +246,7 @@ class ds_13a():
                     if not raw[0].startswith('#') and line[0] != '#':
                         break
                     else:
-                        a_com.extend(raw)                    
+                        comments.extend(raw)                    
                 s['cstrotyp'] = raw[0].upper()
                 s['istrorch'] = int(raw[1])
                 if s['cstrotyp'] == 'FLOW':
@@ -270,9 +262,9 @@ class ds_13a():
                 try:
                     if 'TABDATA' in raw[7].upper():
                         s['cstrval'] = raw[7].upper()
-                        a_com.extend(raw[8:])
+                        comments.extend(raw[8:])
                     else:
-                        a_com.extend(raw[7:])
+                        comments.extend(raw[7:])
                 except IndexError:
                     pass                       
                                                 
@@ -287,7 +279,7 @@ class ds_13a():
                 s['strval'] = float(raw[9])
                 s['istrdir'] = int(raw[10])
                 try:
-                    a_com.extend(raw[11:])
+                    comments.extend(raw[11:])
                 except IndexError:
                     pass
                                        
@@ -297,7 +289,7 @@ class ds_13a():
                     if not raw[0].startswith('#') and line[0] != '#':
                         break
                     else:
-                        a_com.extend(raw)                        
+                        comments.extend(raw)                        
                                       
                 s['cstrotyp'] = raw[0].upper()
                 s['istrorch'] = int(raw[1])
@@ -314,20 +306,20 @@ class ds_13a():
                 try:
                     if 'TABDATA' in raw[7].upper():
                         s['cstrval'] = raw[7].upper()
-                        a_com.extend(raw[8:])
+                        comments.extend(raw[8:])
                     else:
-                        a_com.extend(raw[7:])
+                        comments.extend(raw[7:])
                 except IndexError:
                     pass
             com = []
-            for a in a_com:
+            for a in comments:
                 if a not in ds_13a_h and a not in ds_13b_h:
                     #a_new = a.replace('#',' ')                
                     if a != '#':
                         #com.append(a_new)
                         com.append(a)
                 
-            s['a_com'] = com                                    
+            s['comments'] = comments                                    
             structures.append(s)
             line = f.readline()
             if line == '':
@@ -542,23 +534,304 @@ class ds_13a():
                 s['strcd3'] = 0.5                   
                                     
 
-class ds6():
+class swr_timestep():
+    def __init__(self,filename,reaches,rain_entries,evap_entries,lat_entries,igeonumr,igeo,start,end,step):        
+        self.filename = filename
+        self.reaches = reaches
+        self.nreach = len(reaches)
+        self.ds_5 = ds_5()
+        self.ds_6 = ds_6(reaches)
+        self.ds_7b = ds_7b(rain_entries)
+        self.ds_8b = ds_8b(evap_entries)
+        self.ds_10 = ds_10(igeonumr)
+        self.ds_11 = ds_11(igeo)
+        self.sp_num = 1
+        self.start = start
+        self.end = end
+        self.step = step
+        
+
+
+    def write_transient_sequence(self):        
+        f_obj = open(self.filename,'w')      
+        
+        self.ds_5.irdbnd,e6 = self.ds_6.get_entry(self.start)        
+        self.ds_5.irdrai,e7b = self.ds_7b.get_entry(self.start)        
+        self.ds_5.irdevp,e8b = self.ds_8b.get_entry(self.start)                    
+        irdgeo_10,e10 = self.ds_10.get_entry(self.start)
+        irdgeo_11,e11 = self.ds_11.get_entry(self.start)
+        if irdgeo_10 > 0 or irdgeo_11 > 0:
+            self.ds_5.irdgeo = 1
+
+        #--not implemented
+        self.ds_5.irdlin = 0
+
+        e5 = self.ds_5.get_entry(self.sp_num,self.start)
+
+        f_obj.write(e5)
+        if self.ds_5.irdbnd > 0:
+            f_obj.write(e6)                                           
+        if self.ds_5.irdrai > 0:
+            f_obj.write(e7b)              
+        if self.ds_5.irdevp > 0:
+            f_obj.write(e8b)
+        if self.ds_5.irdlin > 0:
+            raise NotImplementedError('latereal inflow not supported yet..')
+        if self.ds_5.irdgeo > 0:
+            f_obj.write(e10)
+            f_obj.write(e11)
+        day = self.start + self.step        
+        while day <= self.end:            
+            print day
+            self.ds_5.irdbnd,e6 = self.ds_6.get_entry(day)        
+            self.ds_5.irdrai,e7b = self.ds_7b.get_entry(day)        
+            self.ds_5.irdevp,e8b = self.ds_8b.get_entry(day)                    
+            e5 = self.ds_5.get_entry(self.sp_num,day)
+            
+            f_obj.write(e5)
+            if self.ds_5.irdbnd > 0:
+                f_obj.write(e6)                                           
+            if self.ds_5.irdrai > 0:
+                f_obj.write(e7b)              
+            if self.ds_5.irdevp > 0:
+                f_obj.write(e8b)
+            
+            day += self.step
+            self.sp_num += 1                
+
+        f_obj.close()
+        return    
+
+
+class ds_10():
+    def __init__(self,entries,filename_prefix='ds_10_'):
+        '''entries should be dict keyed with datetimes
+        '''
+        self.entries = entries
+        self.filename_prefix = filename_prefix
+        self.header = '# IGMODRCH  IGEONUMR   GZSHIFT\n'
+    
+    def get_entry(self,dt):
+        fname = self.filename_prefix+dt.strftime('%Y%m%d')+'.dat'
+        #--if the datetime is not found, return the last datetime
+        if dt not in self.entries.keys():
+            return 0,None
+        else:
+            self.write(dt,fname)            
+            return 1,'#DATASET 10 - IGEONUMR\nOPEN/CLOSE  ' + fname + '\n'
+
+    def write(self,dt,filename):
+        f_obj = open(filename,'w')
+        f_obj.write(self.header)        
+        data = self.entries[dt]
+        for d in data:
+            f_obj.write('{0:10.0f}{1:10.0f}{2:10.2f}\n'.format(d[0],d[1],d[2]))
+        f_obj.close()
+
+
+class ds_11():
+    def __init__(self,entries,filename_prefix='ds_11_'):
+        '''entries should be dict keyed with datetimes
+        '''
+        self.entries = entries
+        self.filename_prefix = filename_prefix
+        self.header = '#  IGEONUM  IGEOTYPE   IGCNDOP  GMANNING   NGEOPTS    GWIDTH    GBELEV   GSSLOPE      GCND       GLK    GCNDLN   GETEXTD\n'   
+    def get_entry(self,dt):
+        fname = self.filename_prefix+dt.strftime('%Y%m%d')+'.dat'
+        #--if the datetime is not found, return the last datetime
+        if dt not in self.entries.keys():
+            return 0,None
+        else:
+            self.write(dt,fname)            
+            return 1,'#DATASET 11 - IGEONUM\nOPEN/CLOSE  ' + fname + '\n'
+
+    def write(self,dt,filename):
+        f_obj = open(filename,'w')
+        f_obj.write(self.header)                
+        for e in self.entries[dt]:
+            f_obj.write(e)
+        f_obj.close()
+
+
+
+class ds_4a():
     def __init__(self,reaches):
         self.reaches = reaches
-        
-    def __eq__(self,reaches):
-        if len(self.reaches) != reaches:
-            return False
-        for r,rr in zip(reaches,self.reaches):
-            if r.reach != rr.reach:
-                return False
-        return True                            
+    
+    def get_entry(self,filename='swr_ds4a.dat'):
+        self.write(filename)
+        return 'DATASET 4A - REACH INFORMTAION\nOPEN\CLOSE  '+filename
+
+    def write(self,filename):        
+        f_obj = open(filename,'w')
+        f_obj.write('#                                        LAY        ROW        COL\n')
+        f_obj.write('#    IRCH4A IROUTETYPE     IRGNUM       KRCH       IRCH       JRCH           RLEN\n')
+        for r in self.reaches:            
+            f_obj.write(' {0:10.0f} {1:10.0f} {2:10.0f} {3:10.0f} {4:10.0f} {5:10.0f} {6:15.6e}\n' \
+               .format(r.reach,r.iroute,r.reachgroup,1,r.row,r.column,r.length))    
+
+
+class ds_4b():
+    def __init__(self,reaches):
+        self.reaches = reaches    
+
+    def get_entry(self,filename='swr_ds4b.dat'):
+        self.write(filename)
+        return '#DATASET 4B - CONNECTIVITY DATA\nOPEN\CLOSE  '+filename
+
+    def write(self,filename):              
+        f_obj = open(filename,'w')
+        f_obj.write('#    IRCH4B      NCONN      ICONN(1)...ICONN(NCONN)\n')
+        for r in self.reaches:
+            f_obj.write(' {0:10.0f} {1:10.0f} '.format(r.reach,r.nconn))
+            for c in r.conn:
+                f_obj.write(' {0:10.0f}'.format(c))           
+            f_obj.write('\n')
+
+    
+class ds_5():
+    def __init__(self):                                
+        self.itmp,self.irdbnd,self.irdrai = 1,1,1
+        self.irdevp,self.irdlin,self.irdgeo = 1,1,1
+        self.irdstr,self.irdstg,self.iptflg,self.irdaux = 1,1,1,1
+        self.header = '#   ITMP  IRDBND  IRDRAI  IRDEVP  IRDLIN  IRDGEO  IRDSTR  IRDSTG  IPTFLG  IRDAUX\n'
             
+    def get_entry(self,sp_num,dt):
+        entry = '#\n# -- Stress Period ' + str(sp_num) +  '  Date ' + dt.strftime('%Y%m%d') + '\n'
+        entry += self.header
+        entry += '{0:8.0f}{1:8.0f}{2:8.0f}{3:8.0f}{4:8.0f}{5:8.0f}{6:8.0f}{7:8.0f}{8:8.0f}{9:8.0f}\n'\
+            .format(self.itmp,self.irdbnd,self.irdrai,self.irdevp,self.irdlin,self.irdgeo,self.irdstr,self.irdstg,self.iptflg,self.irdaux)
+        return entry
+
+
+class ds_6():
+    def __init__(self,reaches,filename_prefix='ds_6_'):
+        self.reaches = reaches
+        self.filename_prefix = filename_prefix
+        self.ibnd = []
+
+    def get_ibnd(self,dt,val=1):
+        ibnd = []
+        for r in self.reaches:
+            if r.isactive(dt) and r.ibnd != 0:
+                ibnd.append(val)
+            else:
+                ibnd.append(0)
+        return ibnd
+    
+    def get_entry(self,dt):
+        '''gets the current filename and also might write a new ds6 file
+        '''
+        
+        #--get an ibnd for this dt
+        ibnd = self.get_ibnd(dt)
+        if self.ibnd == ibnd:            
+            return 0,None
+
+        else:
+            fname = self.filename_prefix+dt.strftime('%Y%m%d')+'.dat'
+            entry = '#DATASET 6 - IRDBND\nOPEN/CLOSE  '+fname+'\n'
+            self.ibnd = ibnd
+            self.write(fname)
+            irdbnd = 1
+            return 1,entry
+
+    def write(self,fname):
+        
+        f = open(fname,'w')
+        f.write('#  IBNDRCH   ISWRBND\n')
+        for r,ibnd in zip(self.reaches,self.ibnd):
+            f.write('{0:10.0f}{1:10.0f}\n'.format(r.reach,ibnd))
+        f.close()
+
+                                     
+class ds_7b():
+    def __init__(self,entries):
+        '''entries should be dict keyed with datetimes
+        '''
+        self.entries = entries
+    
+    def get_entry(self,dt):        
+        if dt not in self.entries.keys():
+            return 0,None
+        else:
+            return 1,self.entries[dt]
+
+
+class ds_8b():
+    def __init__(self,entries):
+        '''entries should be dict keyed with datetimes
+        '''
+        self.entries = entries
+    
+    def get_entry(self,dt):        
+        if dt not in self.entries.keys():
+            return 0,None
+        else:
+            return 1,self.entries[dt]
+
+
+
+
 
 
 class reach():
-    def __init__(self,rec_dict):
-        for key,val in rec_dict.iteritems():
-            setattr(self,key.lower(),value)
-        #--add an active datetime attribute
-        self.active = datetime(year=int(self.src_active_n),month=1,day=1)                    
+    def __init__(self,reach,iroute,reachgroup,row,column,length,conn,nconn,active_dt,ibnd=1):
+        '''if ibnd == 0, the reach is permenatly disabled'''
+        #--required attibutes
+        self.reach = int(reach)
+        self.iroute = int(iroute)
+        self.reachgroup = int(reachgroup)
+        self.row = int(row)
+        self.column = int(column)
+        self.length = float(length)
+        self.nconn = int(nconn)
+        if not isinstance(conn,list):
+            conn = conn.strip().split()
+        self.conn = conn
+        if not isinstance(active_dt,datetime):
+            raise TypeError('active_dt must be a datetime instance')
+        self.active_dt = active_dt
+        self.active = False
+        self.ibnd = int(ibnd)
+    
+    def __eq__(self,other):
+        if isinstance(other,self.__class__) and self.__dict__ == other.__dict__:
+            return True
+        return False
+
+
+    def isactive(self,dt):
+        if self.active_dt >= dt:
+            return True
+        return False
+
+
+def load_reaches_from_shape(shapename,idx_dict):
+    #if idx_dict is None:
+    #    shp = shapefile.Reader(shapename)
+    #    header = shp.dbfHeader()
+    #    idx_dict = {}
+    #    for i,item in enumerate(header):
+    #        if item[0].lower().startswith('src')
+
+    reaches = []
+    shp = shapefile.Reader(shapename)
+    header = shp.dbfHeader()
+    records = []
+    for i in range(shp.numRecords):
+        rec = shp.record(i)
+        #for ii,item in enumerate(header):
+        #    print ii,item[0],rec[ii]
+        #for name,idx in idx_dict.iteritems():
+        #    print name,idx,rec[idx]
+        conn = rec[idx_dict['conn']].split()
+        for i,c in enumerate(conn):
+            conn[i] = int(c)
+        yr = int(rec[idx_dict['active']])
+        dt = datetime(year=yr,month=1,day=1)
+        # def __init__(self,reach,iroute,reachgroup,row,column,length,conn,nconn,active_dt):
+        r = reach(rec[idx_dict['reach']],rec[idx_dict['iroute']],rec[idx_dict['reachgroup']],rec[idx_dict['row']],rec[idx_dict['column']],rec[idx_dict['length']],conn,rec[idx_dict['nconn']],dt)
+        reaches.append(r)
+        records.append(rec)
+    return reaches,records           

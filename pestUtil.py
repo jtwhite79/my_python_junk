@@ -82,10 +82,51 @@ class smp():
         self.time_index = 2
         self.value_index = 3
         self.pandas = pandas
-        if load:            
+        if load is True:            
             self.records = self.load('all')            
         else:
             self.records = {}
+       
+
+    def make_unique(self):
+        '''looks for multiple entries on the same day and averages them
+        '''
+        assert self.pandas is False, 'to use make_unique, records must not be loaded as pandas objects'
+        for site,record in self.records.iteritems():
+            unique_dates = np.unique(record[:,0])
+            if unique_dates.shape[0] != record.shape[0]:
+                unique = []                
+                for udt in unique_dates:
+                    vals = record[np.where(record[:,0]==udt),1]
+                    unique.append([udt,np.mean(vals)])                    
+                self.records[site] = np.array(unique)
+                print
+
+
+    def merge(self,other,how='average'):
+        '''combines the records of two smp class instances based on site names
+           for places where the data overlap, use how
+           how = average,left,right
+        '''
+        for site,record in self.records.iteritems():
+            if site in other.records.keys():
+                other_record = other.records[site]                
+                for other_dt,other_val in other_record:
+                    if other_dt in record:
+                        if how == 'average':
+                            record[np.where(record[:,0]==other_dt),1] = (record[np.where(record[:,0]==other_dt),1] + other_val) / 2.0
+                        elif how == 'right':
+                            record[np.where(record[:,0]==other_dt),1] = other_val
+                        elif how == 'left':
+                            pass
+                    else:                        
+                        record = np.vstack((record,np.array([other_dt,other_val])))
+
+                #--sort the record - probably out of order
+                record = np.sort(record,axis=0)
+                print                
+
+   
 
     def load(self,site='all'):
         '''if site_name is 'all', loads all records
@@ -132,24 +173,25 @@ class smp():
             else:
                 return records
     
-
     def records2dataframe(self,records):
         ''' to cast the dict records to a pandas dataframe
         '''
-        #--use the first record as the seed for the dataframe
+        #--use the first record as the seed for the dataframe        
         sites = records.keys()
-        r1 = records[sites[0]]        
-        dict = {'date':r1[:,0],sites[0]:r1[:,1]}
-        df = pandas.DataFrame(dict)
-        for site in sites[1:]:
-            record = records[site]            
-            dict = {'date':record[:,0],site:record[:,1]}
-            df2 = pandas.DataFrame(dict)                
-            df = pandas.merge(df,df2,how='outer',right_on='date',left_on='date')
-        df.index = df['date']
-        df.pop('date')
-        return df
-
+        if sites:
+            r1 = records[sites[0]]        
+            dict = {'date':r1[:,0],sites[0]:r1[:,1]}
+            df = pandas.DataFrame(dict)
+            for site in sites[1:]:
+                record = records[site]            
+                dict = {'date':record[:,0],site:record[:,1]}
+                df2 = pandas.DataFrame(dict)                
+                df = pandas.merge(df,df2,how='outer',right_on='date',left_on='date')
+            df.index = df['date']
+            df.pop('date')
+            return df
+        else:
+            return pandas.DataFrame()
 
     def active(self,dt):
         if self.pandas:       
@@ -232,8 +274,13 @@ class smp():
                 f.seek(last)
                 return f
         
-                
-            
+    def save(self,fname):
+        if len(self.records) > 0:
+            f = open(fname,'w')
+            for site,data in self.records.iteritems():
+                for [dt,value] in data:                
+                    f.write(str(site).ljust(10)+' '+dt.strftime('%d/%m/%Y')+' 00:00:00 {0:15.6e}\n'.format(value))              
+            f.close()            
 
 
 
@@ -496,8 +543,10 @@ def set_2_pareto(pst_name,res_name):
     #line = f.readline().strip().split()
     #line[2] = '1'
     #f_out.write(' '.join(line)+'\n')   
-    wght_start = float(regul[1][-2]) * 0.5
-    wght_final = wght_start * 10
+    #wght_start = float(regul[1][-2]) * 0.5
+    #wght_final = wght_start * 10
+    wght_start = 0.0
+    wght_final = 4
     num_steps = 20
     while True:
         line = f.readline()
