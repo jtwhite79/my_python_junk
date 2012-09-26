@@ -24,6 +24,68 @@ structure_list = [['STRUCTURE',['NUGGET','TRANSFORM','NUMVARIOGRAM',['VARNAME','
 
 
 
+def load_wrapped_format(nrow,ncol,filename):
+	'''
+	read 2darray from file
+	file(str) = path and filename
+	'''
+	file_in = open(filename,'r')
+	data = np.zeros((nrow*ncol),dtype='double')-1.0E+10
+	d = 0
+	while True:
+		line = file_in.readline()
+		if line is None or d == nrow*ncol:break
+		raw = line.strip('\n').split()
+		for a in raw:
+			try:
+				data[d] = float(a)
+			except:
+				print 'error casting to float on line: ',line
+				sys.exit()
+			if d == (nrow*ncol)-1:
+				assert len(data) == (nrow*ncol)
+				data.resize(nrow,ncol)
+				return(data) 
+			d += 1	
+	file_in.close()
+	data.resize(nrow,ncol)
+	return(data)
+
+
+
+def load_grid_spec(filename):
+    f = open(filename)
+    info = {}
+    raw = f.readline().strip().split()
+    nrow,ncol = int(raw[0]),int(raw[1])
+    info['nrow'] = nrow
+    info['ncol'] = ncol
+    raw = f.readline().strip().split()
+    xoff,yoff,rot = float(raw[0]),float(raw[1]),float(raw[2])
+    info['xoffset'] = xoff
+    info['ymax'] = yoff
+    info['rotation'] = rot
+    raw = f.readline()
+    if '*' in raw:
+        raw1 = raw.strip().split('*')
+        assert int(raw1[0]) == ncol
+        delr = np.zeros(ncol) + float(raw1[1])
+        info['delr'] = delr
+    else:
+        raise NotImplementedError('too lazy')
+    raw = f.readline()
+    if '*' in raw:
+        raw1 = raw.strip().split('*')
+        assert int(raw1[0]) == nrow
+        delc = np.zeros(nrow) + float(raw1[1])
+        info['delc'] = delc
+    else:
+        raise NotImplementedError('too lazy')
+    f.close()
+    info['yoffset'] = info['ymax'] - np.cumsum(delc)[-1]
+    return info
+
+
 def gslib_2_smp(fname,out_ftype='.dat',xname='X',yname='Y'):
     f = open(fname,'r')
     title = f.readline().strip()
@@ -291,16 +353,17 @@ def write_structure_from_dict(file_name,structure_name,s_dict):
     except TypeError:
         f_out = file_name
     f_out.write('STRUCTURE '+s_dict['STRUCTNAME']+'\n')
+    s_dict.pop('STRUCTNAME')
     f_out.write(' NUGGET '+s_dict['NUGGET']+'\n')
-    
+    s_dict.pop('NUGGET')
     if 'TRANSFORM' in s_dict.keys():
         f_out.write(' TRANSFORM '+s_dict['TRANSFORM']+'\n')
+        s_dict.pop('TRANSFORM')
     else:
         f_out.write(' TRANSFORM NONE\n')
-    f_out.write(' NUMVARIOGRAM '+str(s_dict['NUMVARIOGRAM'])+'\n')    
-    s_dict.pop('NUGGET')
+    f_out.write(' NUMVARIOGRAM '+str(s_dict['NUMVARIOGRAM'])+'\n')        
     s_dict.pop('NUMVARIOGRAM')
-    s_dict.pop('STRUCTNAME')
+    
     vario_strings = []
     for v_name,v_dict in s_dict.iteritems():
         f_out.write(' VARIOGRAM '+v_name+' '+v_dict['CONTRIBUTION']+'\n')

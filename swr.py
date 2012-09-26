@@ -50,8 +50,6 @@ def load_xsec(filename):
     return headers,xsec        
         
 
-
-
 def load_ds4b(filename):
     ds4b = {}
     f = open(filename,'r')

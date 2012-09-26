@@ -67,73 +67,121 @@ def parse_fname(fname):
 #    save_series(new_fname,sums_filled)
 
 
-def interp(series):
-    #--get unique datetime values
-    drange = pandas.date_range(series.index[0],series.index[-1])   
-    df = pandas.DataFrame(index=drange)
-    df = df.combine_first(series)
-    print df
-    print df.dropna()
-    for key,dseries in df.iteritems():
-        print key
-        #df[key] = df[key].resample('D',how='mean')
-        if len(df[key]) != len(df[key].dropna()):
-            df[key] = df[key].interpolate()
-        
-    return df
+def make_daily(df,interp=False):
+    '''only one column per dataframe!
+    '''
+    #--get the data column name
+    dbkey = df.columns.tolist()[0]
+    
+    #--average daily values - in case there are days with multiple entries
+    grouped = df[dbkey].groupby(lambda x: x.toordinal())
+    groups = grouped.groups
+    series_mean = grouped.mean()
+    df_mean = pandas.DataFrame({dbkey:series_mean},index=series_mean.index)
+    df_mean['ord'] = df_mean.index
+    df_mean['dt'] = df_mean['ord'].apply(lambda x:datetime.fromordinal(x) + timedelta(hours=12))
+    df_mean.index = df_mean['dt']
+    df_mean.pop('ord')
+    df_mean.pop('dt')
+
+    #--make a new df over the whole range of the data
+    drange = pandas.date_range(df_mean.index[0],df_mean.index[-1])
+    df_range = pandas.DataFrame({dbkey:np.NaN},index=drange)
+    
+    #--merge the data into the empty dataframe
+    df_range = df_range.combine_first(df_mean)
+    
+    #--linearly interpolate missing days
+    if interp:
+        df_range[dbkey] = df_range[dbkey].interpolate()
+         
+    return df_range.dropna()
     
     
-def interp_breakpoint(series,threshold=0.0,aspandas=False):
+def make_daily_breakpoint(df,threshold=0.0,interp=False):
     '''interpolate the series from breakpoint to daily avg   
     threshold = minimum significant opening
     '''    
-    #--cast series datetimes to ordinals
-    series_ord = []
-    for i,dt in enumerate(series[:,0]):
-        series_ord.append(dt.toordinal())      
     
-    #--apply threshold
-    series[np.where(series[:,1] < threshold),1] = threshold
+    #--apply threshold    
+    dbkey = df.columns.tolist()[0]
+    df[df[dbkey]<threshold] = threshold
     
-    series_ord = np.array(series_ord)    
-    last_entry = series[0,1]
-    rec = []    
-    for day in range(series_ord[0],series_ord[-1]):              
-        series_day = series[np.where(series_ord == day),:][0]        
-        if series_day.shape[0] > 0:
-            #--calc time weighted avg            
-            v_day = calc_time_avg(last_entry,series_day)            
-            last_entry = series_day[-1,1]            
+    #--group by date   
+    #grouped = df.groupby(lambda x: x.toordinal())
+    #groups = grouped.groups
+    #ord_days = groups.keys()
+
+    dt = np.array(df.index.tolist())    
+    data = np.array(df[dbkey].values.tolist())
+    data = np.vstack((dt,data)).transpose()
+    #--strip out the nans
+    data = data[~np.isnan(data[:,1].astype(np.float64))]
+    
+    ord_days = []
+    for d in data[:,0]:
+        ord_days.append(d.toordinal())
+    ord_days = np.array(ord_days)
+
+
+
+    #--process each day
+    #last_entry = df[dbkey][0]
+    try:
+        last_entry = data[-1,1]
+    except:
+        return pandas.DataFrame()
+    rec = []
+    for day in range(ord_days[0],ord_days[-1]):              
+        #--if this day has some entries, calc the time-weighted average        
+        if day in ord_days:
+                                   
+                entries = data[np.where(ord_days==day),:][0]                
+                avg_day_value = calc_time_avg(last_entry,entries)            
+                last_entry = entries[-1,1]  
+            
+        #--otherwise, use the last entry for the day
         else:            
-            v_day = last_entry
-        rec.append([datetime.fromordinal(day),v_day])    
-    if aspandas:
-        df = pandas.DataFrame({'data':rec[:,1]},index=rec[:,0])
-        return df            
-    else:
-        return np.array(rec)              
+            avg_day_value = last_entry
+        rec.append([datetime.fromordinal(day)+timedelta(hours=12),avg_day_value])    
+    #--create a new pandas dataframe of daily average values
+    rec = np.array(rec)
+    df = pandas.DataFrame({dbkey:rec[:,1].astype(np.float64)},index=rec[:,0])
+    start = datetime.fromordinal(ord_days[0]) + timedelta(hours=12)
+    end = datetime.fromordinal(ord_days[-1]) + timedelta(hours=12)
+    df_range = pandas.DataFrame({dbkey:np.NaN},index=pandas.date_range(start,end))
+    df_range = df_range.combine_first(df)
+    if interp:
+        df_range[dbkey] = df_range[dbkey].interpolate()
 
+    return df_range.dropna()            
+    
 
-def calc_time_avg(last_entry,series):
+def calc_time_avg(last_entry,entries):
     ''' for averaging breakpoint data - series is augmented with the previous value at
     the start of the day
     '''    
-    #--if only one entry
-    if series.shape[0] == 0:
-        return last_entry    
-    else:
-        #--a dt object, 00:00:00
-        s_day,s_mon,s_yr = series[0,0].day,series[0,0].month,series[0,0].year
-        day_start = datetime(year=s_yr,month=s_mon,day=s_day)
+    #--a dt object, 00:00:00
+    s_day,s_mon,s_yr = entries[0,0].day,entries[0,0].month,entries[0,0].year
+    day_start = datetime(year=s_yr,month=s_mon,day=s_day)
         
-        #--midnight to the first entry
-        wght = (float((series[0,0] - day_start).seconds)/86400.0)        
-        val = wght * last_entry
+    #--midnight to the first entry
+    wght = (float((entries[0,0] - day_start).seconds)/86400.0)        
+    val = wght * last_entry
         
-        series = np.insert(series,0,np.array([day_start,last_entry]),axis=0)
-        for i,s in enumerate(series[1:]):
-            wght = (float((series[i,0] - series[i-1,0]).seconds)/86400.0)
-            val += series[i-1,1] * wght                    
+    #--from the first entry to the last
+    for i in range(len(entries)-1):
+        wght = (float((entries[i+1,0] - entries[i,0]).seconds)/86400.0)
+        val += entries[i,1] * wght         
+        #secs = (series.index[i+1] - series.index[i]).seconds        
+        #wght = (float(secs))/86400.0
+        #val += (series[i]) * wght
+        
+    #--last entry to midnight
+    next_day = day_start + timedelta(days=1)
+    wght = (float((next_day - entries[-1,0]).seconds)) / 86400.0
+    val += wght * entries[-1,1]
+
     return val
 
 
@@ -173,8 +221,8 @@ def create_full_record(p_series_list):
                 #break                                                                                            
     return full_series        
         
-def save_smp(fname,df):
-    need to implement
+#def save_smp(fname,df):
+#    need to implement
 
                            
 def save_series(fname,df,write_col=None):
