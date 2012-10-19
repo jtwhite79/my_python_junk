@@ -532,8 +532,8 @@ subroutine read_swr_binary_mul(ifail,jseries,irchgrpnum,ifiletype,idataidx,jjser
             allocate(flow(flow_items))
             do
               read (iunit,iostat=ios) tottime, dt, kper, kstp, swrstp
-              iterm = iterm + 1
-              if (ios /= 0) exit              
+              if (ios /= 0) exit   
+              iterm = iterm + 1                        
               do i = 1, ncompele
                 read (iunit,iostat=ios) flow                                            
               end do

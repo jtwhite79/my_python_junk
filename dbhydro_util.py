@@ -7,7 +7,8 @@ idx = {'DA':{'STATION':0,'DBKEY':1,'DATE':2,'DATA':3},
        'BK':{'STATION':2,'DBKEY':3,'DATE':0,'TIME':1,'DATA':4},
        'FWM':{'STATION':0,'DBKEY':1,'DATE':2,'DATA':3},
        'DWR':{'STATION':0,'DBKEY':1,'DATE':2,'TIME':3,'DATA':4},
-       'INST':{'STATION':2,'DBKEY':3,'DATE':0,'TIME':1,'DATA':4}
+       'INST':{'STATION':2,'DBKEY':3,'DATE':0,'TIME':1,'DATA':4},
+       'MEAN':{'STATION':0,'DBKEY':1,'DATE':2,'DATA':3}
        }
 
 

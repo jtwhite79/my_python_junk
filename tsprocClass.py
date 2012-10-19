@@ -5,66 +5,73 @@
 import os
 import sys
 import copy
-import datetime
+#import datetime
+from datetime import timedelta,datetime
 import re
 
 
 #--globals
-series = 'SERIES_NAME'
-vtable = 'V_TABLE_NAME'
-stable = 'S_TABLE_NAME'
-ctable = 'C_TABLE_NAME'
-etable = 'E_TABLE_NAME'
-pest_context = 'pest_prep'
+SERIES = 'SERIES_NAME'
+VTABLE = 'V_TABLE_NAME'
+STABLE = 'S_TABLE_NAME'
+CTABLE = 'C_TABLE_NAME'
+ETABLE = 'E_TABLE_NAME'
+PEST_CONTEXT = 'pest_prep'
+
+DATE_FMT = '%d/%m/%Y'
+
 
 #--some generic func
 def write_date_file(file,start,end,interval):
+    '''start and end are datetimes, interval is a timedelta
+    '''
+    stime = '00:00:01'
+    etime = '00:00:00'
+    sec = timedelta(seconds=1)
     fout = open(file,'w')  
-    if interval == None:
-        startdate = datetime.datetime.fromordinal(start)       
-        enddate = datetime.datetime.fromordinal(end)
-        start_string = str(startdate.day).zfill(2)+'/'+\
-                       str(startdate.month).zfill(2)+'/'+str(startdate.year)
-        end_string = str(enddate.day).zfill(2)+'/'+\
-                     str(enddate.month).zfill(2)+'/'+str(enddate.year)
-        #print start_string+' 00:00:01 '+end_string+' 00:00:00'
-        fout.write(start_string+' 00:00:01 '+end_string+' 00:00:00\n')
+    if interval == None:        
+        start_string = (start+sec).strftime(DATE_FMT+' %H:%M:%S')
+        end_string = end.strftime(DATE_FMT+' %H:%M:%S')        
+        fout.write(start_string+' '+end_string+'\n')
         fout.close()
         return        
     else:    
-        for i in range(start,end-interval,interval):
-            startdate = datetime.datetime.fromordinal(i)
-            enddate = datetime.datetime.fromordinal(i+interval)
-            
-            start_string = str(startdate.day).zfill(2)+'/'+\
-                           str(startdate.month).zfill(2)+'/'+str(startdate.year)
-            end_string = str(enddate.day).zfill(2)+'/'+\
-                         str(enddate.month).zfill(2)+'/'+str(enddate.year)
-            #print start_string+' 00:00:01 '+end_string+' 00:00:00'
-            fout.write(start_string+' 00:00:01 '+end_string+' 00:00:00\n')
-    fout.close()
+        date = start
+        while date <= end:        
+            sdate = date
+            edate = date + interval
+            if edate >= end:
+                break
+            start_string = (sdate+sec).strftime(DATE_FMT+' %H:%M:%S')
+            end_string = edate.strftime(DATE_FMT+' %H:%M:%S')                
+            fout.write(start_string+' '+end_string+'\n')            
+            date += interval
+        fout.close()
+        return
 
-def load_datefile(datefile):
-    dates,times = [],[]
-    try:
-        f = open(datefile,'r')
-        for line in f:
-            raw = line.strip().split()
-            dates.append([raw[0],raw[2]])
-            times.append([raw[1],raw[3]])
-        f.close()
-    except: pass
-    return dates,times
 
-def get_unique_ssf_obs(file):
-    unique = []
-    f = open(file,'r')
-    for line in f:
-        this_name = line.strip().split()[0]
-        if this_name not in unique:
-            unique.append(this_name)
-    f.close()
-    return unique
+
+#def load_datefile(datefile):
+#    dates,times = [],[]
+#    try:
+#        f = open(datefile,'r')
+#        for line in f:
+#            raw = line.strip().split()
+#            dates.append([raw[0],raw[2]])
+#            times.append([raw[1],raw[3]])
+#        f.close()
+#    except: pass
+#    return dates,times
+
+#def get_unique_ssf_obs(file):
+#    unique = []
+#    f = open(file,'r')
+#    for line in f:
+#        this_name = line.strip().split()[0]
+#        if this_name not in unique:
+#            unique.append(this_name)
+#    f.close()
+#    return unique
 
 
 
@@ -76,7 +83,7 @@ class base_block():
         if wght != None:
             assert role=='final', 'role must be final if wght != None:'+str(name)
             #assert context == pest_context
-        if role == 'final' and context == pest_context and wght == None:
+        if role == 'final' and context == PEST_CONTEXT and wght == None:
             print 'Warning -- assigning generic weight 1.0 for final pest '\
                   +data_type+' :'+str(name)
             wght = 1.0
@@ -145,6 +152,9 @@ class tsproc(base_block):
         #--a flag for writing pest input files
         self.pest = False                                   
     
+        #--a counter for generic file name needs
+        self.fcount = 1
+
     def copy_blocks(self,existing_blocks,prefix,block_operation='copy',\
                     context='all'):
         new_blocks = []
@@ -180,7 +190,7 @@ class tsproc(base_block):
         new_blocks = []
         for b_idx in range(len(object_instance.blocks)):
             new_name = prefix + object_instance.blocks[b_idx].name + block_operation
-            print new_name
+            #print new_name
             self.check_name(new_name)
             object_instance.blocks[b_idx].name = new_name
             self.blocks.append(object_instance.blocks[b_idx])
@@ -190,13 +200,13 @@ class tsproc(base_block):
         
     def add_existing_blocks(self,blocks,block_operations=[]):
         new_blocks = []
-        for b_idx in range(len(blocks)):
-            if blocks[b_idx].name != '':
-                self.check_name(blocks[b_idx].name)
-            self.blocks.append(blocks[b_idx])
-            new_blocks.append(blocks[b-idx])
+        for i,b in enumerate(blocks):
+            #if b.name != '':
+            #    self.check_name(b.name)
+            self.blocks.append(b)
+            new_blocks.append(b)
             if len(block_operations) == len(blocks):
-                self.block_operations.append(block_operations[b_idx])
+                self.block_operations.append(block_operations[i])
         return new_blocks
     
     def num_blocks(self):
@@ -269,10 +279,24 @@ class tsproc(base_block):
             return False            
             
     def check_name(self,name):
-        if self.name_exists(name):
-            print 'Error - existing series with name ',name
-            raise NameError         
-            
+        if self.name_exists(name):            
+            raise TypeError('Error - existing series with name '+str(name))         
+
+    def get_name(self,name,suffix):
+        #if len(name) == 10:
+        #    new_name = name[:-2] + suffix
+        #elif len(name) == 9:
+        #    new_name = name[:-1] + suffix
+        #else:
+        #    new_name = name + suffix
+        new_name = name[:-2] + suffix
+        try:
+            self.check_name(new_name)
+        except:
+            new_name = name[:-3]+str(self.fcount)+suffix
+            self.check_name(new_name)
+            self.fcount += 1
+        return new_name                                              
     
     #-----------------------------------
     #--load series blocks 
@@ -288,8 +312,8 @@ class tsproc(base_block):
             name = prefix + o + suffix
             self.check_name(o)                            
             this_item_values = [ssf_file,o,name]           
-            this_block = base_block('GET_MUL_SERIES_SSF',context,\
-                                         name,series,this_item_keys,\
+            this_block = base_block('GET_SERIES_SSF',context,\
+                                         name,SERIES,this_item_keys,\
                                          this_item_values,role,wght=wght,
                                          max_min=max_min)
             self.blocks.append(this_block)
@@ -298,63 +322,97 @@ class tsproc(base_block):
         return new_blocks            
                   
 
-       
-       
-    def get_series_swr(self,rchgrp_list,swr_data_type,bin_file_name,\
-                            start_date,series_name_list=None,\
-                            start_time='00:00:00',context='all',\
-                            block_operation='get_series_swr',\
-                            role='intermediate',prefix='',wght=None,
-                            max_min=None):
-        #--check that atleast the start_date contains '/'
-        assert len(start_date.split('/')) == 3
+    def get_mul_series_ssf(self,site_list,ssf_file,context='all',prefix='',\
+                       block_operation='get_series_ssf',role='intermediate',\
+                       wght=None,max_min=None,series_list = None):        
         
-        if series_name_list != None:
-            assert len(rchgrp_list) == len(series_name_list), \
-                   'reachgroup list != series_name_list'
-                                   
         suffix = 'or'
-        
-        this_item_keys = ['FILE','REACH_GROUP_NUMBER','DATA_TYPE',\
-                          'DATE_1','TIME_1','NEW_SERIES_NAME']
-        
-        
-        new_blocks = []
-        for idx in range(len(rchgrp_list)):
-            if series_name_list == None:
-                if int(rchgrp_list[idx]) != -999:
-                    this_series_name = prefix+swr_data_type[:2]+\
-                                       str(rchgrp_list[idx])+suffix
-                else:
-                     this_series_name = prefix+swr_data_type[:2]+\
-                                       'all'+suffix
-            else:
-                this_series_name = series_name_list[idx]
-            
-            self.check_name(this_series_name)               
-            
-            this_item_values = [bin_file_name,str(rchgrp_list[idx]),\
-                                swr_data_type,start_date,start_time,\
-                                this_series_name]
-            this_block = base_block('GET_SERIES_SWR',context,this_series_name,\
-                                    series,this_item_keys,this_item_values,role,
-                                    wght=wght,max_min=max_min)
-            self.blocks.append(this_block)
-            new_blocks.append(this_block)
+        if series_list == None:
+            series_list = []
+            for site in site_list:
+                series_list.append(prefix+site+suffix)
+        else:
+            assert len(site_list) == len(series_list)
+        this_item_keys = ['FILE']        
+        this_item_values = [ssf_file] 
+        dummy_blocks = []                  
+        for site,series_name in zip(site_list,series_list):           
+            self.check_name(series_name)                          
+            this_item_keys.extend(['SITE','NEW_SERIES_NAME'])
+            this_item_values.extend([site,series_name])           
+            this_block = base_block('**DUMMY**',context,\
+                                         series_name,SERIES,['dummy'],\
+                                         ['dummy'],'intermediate',wght=wght,
+                                         max_min=max_min)                    
+            dummy_blocks.append(this_block)
+            self.blocks.append(this_block)            
             self.block_operations.append([block_operation])
-        return new_blocks
+        this_block = base_block('GET_MUL_SERIES_SSF',context,\
+                                         'get_mul',SERIES,this_item_keys,\
+                                         this_item_values,role,wght=wght,
+                                         max_min=max_min)
+        self.blocks.append(this_block)        
+        self.block_operations.append([block_operation])
+        return dummy_blocks        
+
+       
+    #--need to convert to datetime usage   
+    #def get_series_swr(self,rchgrp_list,swr_data_type,bin_file_name,\
+    #                        start_date,series_name_list=None,\
+    #                        start_time='00:00:00',context='all',\
+    #                        block_operation='get_series_swr',\
+    #                        role='intermediate',prefix='',wght=None,
+    #                        max_min=None):
+    #    #--check that atleast the start_date contains '/'
+    #    assert len(start_date.split('/')) == 3
+    #    
+    #    if series_name_list != None:
+    #        assert len(rchgrp_list) == len(series_name_list), \
+    #               'reachgroup list != series_name_list'
+    #                               
+    #    suffix = 'or'
+    #    
+    #    this_item_keys = ['FILE','REACH_GROUP_NUMBER','DATA_TYPE',\
+    #                      'DATE_1','TIME_1','NEW_SERIES_NAME']
+    #    
+    #    
+    #    new_blocks = []
+    #    for idx in range(len(rchgrp_list)):
+    #        if series_name_list == None:
+    #            if int(rchgrp_list[idx]) != -999:
+    #                this_series_name = prefix+swr_data_type[:2]+\
+    #                                   str(rchgrp_list[idx])+suffix
+    #            else:
+    #                 this_series_name = prefix+swr_data_type[:2]+\
+    #                                   'all'+suffix
+    #        else:
+    #            this_series_name = series_name_list[idx]
+    #        
+    #        self.check_name(this_series_name)               
+    #        
+    #        this_item_values = [bin_file_name,str(rchgrp_list[idx]),\
+    #                            swr_data_type,start_date,start_time,\
+    #                            this_series_name]
+    #        this_block = base_block('GET_SERIES_SWR',context,this_series_name,\
+    #                                SERIES,this_item_keys,this_item_values,role,
+    #                                wght=wght,max_min=max_min)
+    #        self.blocks.append(this_block)
+    #        new_blocks.append(this_block)
+    #        self.block_operations.append([block_operation])
+    #    return new_blocks
     
     
     
     def get_mul_series_swr(self,rchgrp_list,swr_data_type,bin_file_name,\
-                            start_date,series_name_list=None,\
-                            start_time='00:00:00',context='all',\
+                            start_dt,series_name_list=None,\
+                            context='all',\
                             block_operation='get_mul_series_swr',\
                             role='intermediate',prefix='',wght=None,
                             max_min=None):
-        #--check that atleast the start_date contains '/'
-        assert len(start_date.split('/')) == 3
         
+        start_date = start_dt.strftime(DATE_FMT)
+        start_time = start_dt.strftime('%H:%M:%S')
+
         if series_name_list != None:
             assert len(rchgrp_list) == len(series_name_list), \
                    'reachgroup list != series_name_list'
@@ -386,7 +444,7 @@ class tsproc(base_block):
             
             #--create dummy blocks for each series                     
             this_block = base_block('**DUMMY**',context,this_series_name,\
-                                    series,this_item_keys,this_item_values,role,
+                                    SERIES,this_item_keys,this_item_values,role,
                                     wght=None,max_min=None)
             self.blocks.append(this_block)
             new_blocks.append(this_block)
@@ -394,27 +452,38 @@ class tsproc(base_block):
         
         #--create the actual block that will be written
         this_block = base_block('GET_MUL_SERIES_SWR',context,block_name,\
-                                series,this_item_keys,this_item_values,'intermediate',
+                                SERIES,this_item_keys,this_item_values,'intermediate',
                                 wght=wght,max_min=max_min)             
         
         self.blocks.append(this_block)                                
         #--don't return the actual written block, only the dummy blocks
         return new_blocks
+                    
     
-    
-     
-    
-            
-    
-    def new_series_uniform(self,like_series_blocks,constant_list,\
+    def new_series_uniform(self,series_names,start_dt,end_dt,interval=1,suffix='un',\
+                            units='days',value=-999,role='intermediate',\
+                            wght=None,max_min=None,block_operation='new_series_uniform',context='all'):
+        item_keys = ['NEW_SERIES_NAME','DATE_1','TIME_1','DATE_2','TIME_2','TIME_INTERVAL','TIME_UNIT','NEW_SERIES_VALUE']
+        item_vals = ['junk',start_dt.strftime(DATE_FMT),start_dt.strftime('%H:%M:%S'),end_dt.strftime(DATE_FMT),end_dt.strftime('%H:%M:%S'),interval,units,value]
+        new_blocks = []        
+        for name in series_names:
+            name = name[:-2] + suffix   
+            item_vals[0] = name
+            this_block = base_block('NEW_SERIES_UNIFORM',context,name,SERIES,item_keys,item_vals,role,wght=wght,max_min=max_min)
+            self.blocks.append(this_block)
+            new_blocks.append(this_block)
+            self.block_operations.append([block_operation])    
+        return new_blocks
+
+
+    def new_series_uniform_like(self,like_series_blocks,constant_list,\
                            context='all',block_operation='new_series_uniform',\
-                           suffix='un',role='intermediate',wght=None,\
+                           suffix='ul',role='intermediate',wght=None,\
                            max_min=None):       
         this_item_keys = ['LIKE_SERIES','NEW_SERIES_NAME','CONSTANT']
         new_blocks = []
         for b_idx in range(len(like_series_blocks)):
-            this_like_block = like_series_blocks[b_idx]
-            
+            this_like_block = like_series_blocks[b_idx]         
             #--check that this like block exists
             if self.name_exists(this_like_block.name) == False:
                 print 'like series block does not exist:'+\
@@ -426,7 +495,7 @@ class tsproc(base_block):
                                 constant_list[b_idx]]                        
             self.check_name(this_series_name)
             this_block = base_block('NEW_SERIES_UNIFORM',context,\
-                                    this_series_name,series,this_item_keys,\
+                                    this_series_name,SERIES,this_item_keys,\
                                     this_item_values,role,wght=wght,\
                                     max_min=max_min)
             self.blocks.append(this_block)
@@ -453,7 +522,34 @@ class tsproc(base_block):
     #--manipulate series blocks
     #--manipulate blocks add a block_operation to the series name
    
+
+
+    def baseflow_filter(self,existing_blocks,block_opertion='digital_filter',\
+                        alpha=0.9,passes=1,clip_input='no',clip_zero='no',\
+                        context='all',wght=None,max_min=None,suffix='df',
+                        role='intermediate',block_operation='baseflow_filter'):
+        
+        this_item_keys = ['FILTER_TYPE','SERIES_NAME','NEW_SERIES_NAME',\
+                          'ALPHA','PASSES','CLIP_INPUT','CLIP_ZERO']
+        new_blocks = []
+        for block in existing_blocks:
+            this_series_name = self.get_name(block.name,suffix)            
+            assert block.data_type == SERIES
+            self.check_name(this_series_name)            
+            this_item_vals = ['baseflow_separation',block.name,this_series_name,\
+                                alpha,passes,clip_input,clip_zero]
+            this_block = base_block('DIGITAL_FILTER',context,this_series_name,SERIES,\
+                                    this_item_keys,this_item_vals,role,wght=wght,max_min=max_min)
+            self.blocks.append(this_block)
+            new_blocks.append(this_block)
+            this_block_index = self.get_block_index(block.name)
+            this_op = copy.deepcopy(self.block_operations[this_block_index])
+            this_op.append(block_operation)             
+            self.block_operations.append(this_op)
+        return new_blocks                                                     
  
+   
+
     def reduce_time_like(self,existing_blocks,like_blocks,\
                          block_operation='reduce_time_like',\
                          context='all',role='intermediate',\
@@ -462,17 +558,15 @@ class tsproc(base_block):
         this_item_keys = ['SERIES_NAME','NEW_SERIES_NAME','LIKE_SERIES_NAME']
         assert len(existing_blocks) == len(like_blocks)
         new_blocks = []
-        for idx in range(len(existing_blocks)):
-            block = existing_blocks[idx]
-            like_block = like_blocks[idx]
-            assert block.data_type == series
-            assert like_block.data_type == series
-            this_series_name = block.name[:-2]+suffix
+        for block,like_block in zip(existing_blocks,like_blocks):            
+            assert block.data_type == SERIES
+            assert like_block.data_type == SERIES
+            this_series_name = self.get_name(block.name,suffix)
             self.check_name(this_series_name)
             this_item_values = [block.name,this_series_name,\
                                 like_block.name]                                                                           
             this_block = base_block('REDUCE_TIME_SPAN',context,\
-                                    this_series_name,series,this_item_keys,\
+                                    this_series_name,SERIES,this_item_keys,\
                                     this_item_values,role,wght=wght,\
                                     max_min=max_min)
             self.blocks.append(this_block)
@@ -484,36 +578,39 @@ class tsproc(base_block):
         return new_blocks            
                                     
     
-    def reduce_time(self,existing_blocks,start_date,\
-                    start_time='00:00:00',block_operation='reduce_time'\
+    def reduce_time(self,existing_blocks,start_dt,\
+                    block_operation='reduce_time'\
                     ,context='all',role='intermediate',wght=None,\
-                    max_min=None,end_date=None,end_time=None,\
+                    max_min=None,end_dt=None,\
                     suffix = 'rd'):                
-        #--check that atleast the start_date contains '/'
-        assert len(start_date.split('/')) == 3
         
+        start_date = start_dt.strftime(DATE_FMT)
+        start_time = start_dt.strftime('%H:%M:%S')
+        
+        
+
         this_item_keys = ['SERIES_NAME','NEW_SERIES_NAME',\
                           'DATE_1','TIME_1']
-        if end_date != None:
-            assert end_time != None, 'time_2 must not be None if Date_2 is not None'            
+        if end_dt != None:            
+            end_date = end_dt.strftime(DATE_FMT)
+            end_time = end_dt.strftime('%H:%M:%S')
             this_item_keys.append('DATE_2')                         
             this_item_keys.append('TIME_2')
         new_blocks = []
         for block in existing_blocks:
             
-            this_series_name = block.name[:-2]+suffix            
-            assert block.data_type == series
-            self.check_name(this_series_name)
-            if self.name_exists(this_series_name):                
-                print 'Error - existing series with name ',this_series_name
-                raise IndexError                  
+            this_series_name = self.get_name(block.name,suffix)            
+            assert block.data_type == SERIES
+            self.check_name(this_series_name)            
             this_item_values = [block.name,this_series_name,\
                                 start_date,start_time]
-            if end_date != None:
+            if end_dt != None:
+                end_date = end_dt.strftime(DATE_FMT)
+                end_time = end_dt.strftime('%H:%M:%S')
                 this_item_values.append(end_date)                                
                 this_item_values.append(end_time)
             this_block = base_block('REDUCE_TIME_SPAN',context,this_series_name,\
-                                    series,this_item_keys,this_item_values,role,\
+                                    SERIES,this_item_keys,this_item_values,role,\
                                     wght=wght,max_min=max_min)
             self.blocks.append(this_block)
             new_blocks.append(this_block)
@@ -534,12 +631,12 @@ class tsproc(base_block):
                           ,'DATE_FILE']
         new_blocks = []                          
         for block in existing_blocks:
-            this_vtable_name = block.name[:-2]+suffix
-            assert block.data_type == series
+            this_vtable_name = self.get_name(block.name,suffix)
+            assert block.data_type == SERIES
             self.check_name(this_vtable_name)
             this_item_values = [block.name,this_vtable_name,units,datefile]
             this_block = base_block('VOLUME_CALCULATION',context,this_vtable_name,\
-                                    vtable,this_item_keys,this_item_values,role,\
+                                    VTABLE,this_item_keys,this_item_values,role,\
                                     wght=wght,max_min=max_min)
             self.blocks.append(this_block)
             new_blocks.append(this_block)
@@ -566,13 +663,13 @@ class tsproc(base_block):
             first_value = 'yes'
         new_blocks = []
         for block in existing_blocks:
-            this_series_name = block.name[:-2]+suffix
-            assert block.data_type == series
+            this_series_name = self.get_name(block.name,suffix)
+            assert block.data_type == SERIES
             self.check_name(this_series_name)
             this_item_values = [block.name,datefile,this_series_name,\
                                 first_value,ref_value]
             this_block = base_block('SERIES_BLOCK_DRAWDOWN',context,this_series_name,\
-                                    series,this_item_keys,this_item_values,role,\
+                                    SERIES,this_item_keys,this_item_values,role,\
                                     wght=wght,max_min=max_min)
             
             self.blocks.append(this_block)
@@ -593,7 +690,7 @@ class tsproc(base_block):
         suffix = 'st'
         new_blocks = []
         for block in existing_blocks:
-            assert block.data_type == series
+            assert block.data_type == SERIES
             
             if date_time_list == None:
                 this_stable_name = block.name[:-2]+suffix
@@ -603,7 +700,7 @@ class tsproc(base_block):
                 for op in operation_list:
                     this_item_values.append('yes')
                 this_block = base_block('SERIES_STATITICS',context,\
-                                        this_stable_name,stable,\
+                                        this_stable_name,STABLE,\
                                         this_item_keys,this_item_values,role,\
                                         wght=wght,max_min=max_min)
                                 
@@ -623,7 +720,7 @@ class tsproc(base_block):
                 this_item_keys_cpy = copy.deepcopy(this_item_keys)
                 this_item_keys_cpy.extend(['DATE_1','TIME_1','DATE_2','TIME_2'])
                 for dt_idx in range(len(date_time_list[0])):
-                    this_stable_name = block.name[:-2]+suffix+str(dt_count)
+                    this_stable_name = self.get_name(block.name,suffix)+str(dt_count)
                     self.check_name(this_stable_name)
                     this_item_values = [block.name,this_stable_name]
                     for op in operation_list:
@@ -633,7 +730,7 @@ class tsproc(base_block):
                                              date_time_list[0][dt_idx][1],\
                                              date_time_list[1][dt_idx][1]])                     
                     this_block = base_block('SERIES_STATITICS',context,\
-                                            this_stable_name,stable,\
+                                            this_stable_name,STABLE,\
                                             this_item_keys_cpy,\
                                             this_item_values,role,wght=wght,\
                                             max_min=max_min)
@@ -654,15 +751,15 @@ class tsproc(base_block):
                         max_min=None):
         #--a wrapper for series equation                                            
         assert len(existing_blocks_1) == len(existing_blocks_2)                     
-        suffix = 'ad'                                                               
+        suffix = 'qs'                                                               
         new_blocks = []
         for b_idx in range(len(existing_blocks_1)):                                 
             this_equation = existing_blocks_1[b_idx].name +' + ' + \
                             existing_blocks_2[b_idx].name                           
             this_series_name = existing_blocks_1[b_idx].name[:-2]+suffix            
             self.check_name(this_series_name)                                       
-            assert existing_blocks_1[b_idx].data_type == series                     
-            assert existing_blocks_2[b_idx].data_type == series                     
+            assert existing_blocks_1[b_idx].data_type == SERIES                     
+            assert existing_blocks_2[b_idx].data_type == SERIES                     
             this_block =self.__series_equation(this_equation,existing_blocks_1[b_idx].name,\
                                  this_series_name,context,block_operation,\
                                  role,wght,max_min)
@@ -675,15 +772,15 @@ class tsproc(base_block):
                         max_min=None):
         #--a wrapper for series equation                                            
         assert len(existing_blocks_1) == len(existing_blocks_2)                     
-        suffix = 'mt' 
+        suffix = 'qm' 
         new_blocks = []                                                              
         for b_idx in range(len(existing_blocks_1)):                                 
             this_equation = existing_blocks_1[b_idx].name +' * ' + \
                             existing_blocks_2[b_idx].name                           
             this_series_name = existing_blocks_1[b_idx].name[:-2]+suffix            
             self.check_name(this_series_name)                                       
-            assert existing_blocks_1[b_idx].data_type == series                     
-            assert existing_blocks_2[b_idx].data_type == series                     
+            assert existing_blocks_1[b_idx].data_type == SERIES                     
+            assert existing_blocks_2[b_idx].data_type == SERIES                     
             this_block = self.__series_equation(this_equation,existing_blocks_1[b_idx].name,\
                                  this_series_name,context,block_operation,\
                                  role,wght,max_min)
@@ -694,7 +791,7 @@ class tsproc(base_block):
     def difference_2_series(self,existing_blocks_1,existing_blocks_2,\
                             block_operation='difference_2_series'\
                             ,context='all',role='intermediate',wght=None,\
-                            max_min=None,suffix='df'):   
+                            max_min=None,suffix='qf'):   
         #--a wrapper for series equation
         assert len(existing_blocks_1) == len(existing_blocks_2)        
         new_blocks = []
@@ -703,8 +800,8 @@ class tsproc(base_block):
                             existing_blocks_2[b_idx].name
             this_series_name = existing_blocks_1[b_idx].name[:-2]+suffix
             self.check_name(this_series_name)
-            assert existing_blocks_1[b_idx].data_type == series
-            assert existing_blocks_2[b_idx].data_type == series
+            assert existing_blocks_1[b_idx].data_type == SERIES
+            assert existing_blocks_2[b_idx].data_type == SERIES
             this_block = self.__series_equation(this_equation,existing_blocks_1[b_idx].name,\
                                  this_series_name,context,block_operation,role,wght,\
                                  max_min)
@@ -740,20 +837,28 @@ class tsproc(base_block):
         return new_blocks                             
                              
     
-    def copy_2_series(self,existing_blocks,new_name_prefix,block_operation='copy',\
-                      context='all',role='intermediate',wght=True,maxmin=True):
+    def copy_2_series(self,existing_blocks,new_names,block_operation='copy',\
+                      context='all',role='intermediate',wght=None,maxmin=None):
         new_blocks = []
-        for block in existing_blocks:
-            assert block.data_type == series,block.name+' is not a series'
-            this_series_name = new_name_prefix + block.name
-            if wght==True:
-                this_wght = block.wght
-            if maxmin == True:
-                this_maxmin = block.max_min
+        assert len(new_names) == len(existing_blocks),'the list of new names is not the same length as the existing blocks list'
+        for block,new_name in zip(existing_blocks,new_names):
+            #print block
+            assert block.data_type == SERIES,block.name+' is not a series'
+            this_series_name = new_name
+            #if wght != None:
+            #    if wght == 'other':
+            #        this_wght = block.wght
+            #    else:
+            #        this_wght = wght
+            #if maxmin != None:
+            #    if wght == 'other':
+            #        this_maxmin = block.max_min
+            #    else:
+            #        this_maxmin = maxmin
             #print this_wght
             self.check_name(this_series_name)
             this_block = self.__series_equation(block.name,block.name,this_series_name,\
-                                  context,block_operation,role,this_wght,this_maxmin)
+                                  context,block_operation,role,wght,maxmin)
             new_blocks.append(this_block)
         return new_blocks    
                              
@@ -770,7 +875,7 @@ class tsproc(base_block):
             this_item_values = ['yes',equation]
         #print equation
         this_block = base_block('SERIES_EQUATION',context,\
-                                new_series_name,series,this_item_keys,\
+                                new_series_name,SERIES,this_item_keys,\
                                 this_item_values,role,wght=wght,max_min=max_min)
         
         self.blocks.append(this_block)
@@ -791,13 +896,13 @@ class tsproc(base_block):
                           'SAMPLE_TIME']
         new_blocks = []
         for block in existing_blocks:
-            this_series_name = block.name[:-2]+suffix
-            assert block.data_type == series
+            this_series_name = self.get_name(block.name,suffix)
+            assert block.data_type == SERIES
             self.check_name(this_series_name)
             this_item_values = [block.name,this_series_name,\
                                 datefile,sample_time]                                                                           
             this_block = base_block('SERIES_TIME_AVERAGE',context,\
-                                    this_series_name,series,this_item_keys,\
+                                    this_series_name,SERIES,this_item_keys,\
                                     this_item_values,role,wght=wght,\
                                     max_min=max_min)
             self.blocks.append(this_block)
@@ -815,18 +920,15 @@ class tsproc(base_block):
         this_item_keys = ['SERIES_NAME','NEW_SERIES_NAME','TB_SERIES_NAME']
         new_blocks = []
         if len(existing_blocks) == len(time_base_blocks):
-            
-            for idx in range(len(existing_blocks)):
-                block = existing_blocks[idx]
-                tb_block = time_base_blocks[idx]
-                assert block.data_type == series
-                assert tb_block.data_type == series
-                this_series_name = block.name[:-2]+suffix                   
+            for block,tb_block in zip(existing_blocks,time_base_blocks):                            
+                assert block.data_type == SERIES
+                assert tb_block.data_type == SERIES
+                this_series_name = self.get_name(block.name,suffix)                   
                 self.check_name(this_series_name)        
                 this_item_values = [block.name,this_series_name,\
                                 tb_block.name]                                                                           
                 this_block = base_block('NEW_TIME_BASE',context,\
-                                        this_series_name,series,this_item_keys,\
+                                        this_series_name,SERIES,this_item_keys,\
                                         this_item_values,role,wght=wght,\
                                         max_min=max_min)
                 self.blocks.append(this_block)
@@ -839,14 +941,14 @@ class tsproc(base_block):
            for idx in range(len(existing_blocks)):
                 block = existing_blocks[idx]
                 tb_block = time_base_blocks[0]
-                assert block.data_type == series
-                assert tb_block.data_type == series
-                this_series_name = block.name[:-2]+suffix                   
+                assert block.data_type == SERIES
+                assert tb_block.data_type == SERIES
+                this_series_name = self.get_name(block.name,suffix)                   
                 self.check_name(this_series_name)        
                 this_item_values = [block.name,this_series_name,\
                                 tb_block.name]                                                                           
                 this_block = base_block('NEW_TIME_BASE',context,\
-                                        this_series_name,series,this_item_keys,\
+                                        this_series_name,SERIES,this_item_keys,\
                                         this_item_values,role,wght=wght,\
                                         max_min=max_min)
                 self.blocks.append(this_block)
@@ -866,13 +968,13 @@ class tsproc(base_block):
         new_blocks = []
         for idx in range(len(existing_blocks)):
             block = existing_blocks[idx]
-            this_series_name = block.name[:-2]+suffix
-            assert block.data_type == series
+            this_series_name = self.get_name(block.name,suffix)
+            assert block.data_type == SERIES
             self.check_name(this_series_name)
             this_item_values = [block.name,this_series_name,\
                                 constants[idx],fill_value]                                                                           
             this_block = base_block('SERIES_DISPLACE_CONSTANT',context,\
-                                    this_series_name,series,this_item_keys,\
+                                    this_series_name,SERIES,this_item_keys,\
                                     this_item_values,role,wght=wght,\
                                     max_min=max_min)
             self.blocks.append(this_block)
@@ -891,12 +993,12 @@ class tsproc(base_block):
         this_item_keys = ['NEW_SERIES_NAME','V_TABLE_NAME','TIME_ABSCISSA']
         new_blocks = []
         for block in existing_blocks:
-            assert block.data_type == vtable
-            this_series_name = block.name[:-2]+suffix
+            assert block.data_type == VTABLE
+            this_series_name = self.get_name(block.name,suffix)
             self.check_name(this_series_name)
             this_item_values = [this_series_name,block.name,time_absc]
             this_block = base_block('V_TABLE_TO_SERIES',context,\
-                                    this_series_name,series,this_item_keys,\
+                                    this_series_name,SERIES,this_item_keys,\
                                     this_item_values,role,wght,\
                                     max_min=max_min)
             self.blocks.append(this_block)
@@ -928,13 +1030,13 @@ class tsproc(base_block):
         
         new_blocks = []
         for block in existing_blocks:
-            assert block.data_type == series
-            this_series_name = block.name[:-2]+suffix
+            assert block.data_type == SERIES
+            this_series_name = self.get_name(block.name,suffix)
             self.check_name(this_series_name)
             this_item_values = [block.name,this_series_name,time_units,under_over]
             this_item_values.extend(flow_delay)
             this_block = base_block('EXCEEDENCE_TIME',context,this_series_name,\
-                                    etable,this_item_keys,this_item_values,\
+                                    ETABLE,this_item_keys,this_item_values,\
                                     role,wght,max_min=max_min)
             self.blocks.append(this_block)
             new_blocks.append(this_block)
@@ -975,18 +1077,24 @@ class tsproc(base_block):
             block.write_entry(self.f_obj)
         return
                 
-    def write_settings(self,date_fmt='dd/mm/yyyy'):
+    def write_settings(self):
         self.f_obj.write('\nSTART SETTINGS\n')
         contexts = self.get_contexts()
         if len(contexts) > 1:
             for context in contexts:
-                if context == pest_context:
+                if context == PEST_CONTEXT:
                     self.f_obj.write(' CONTEXT '+context+'\n')
                 else:
                     self.f_obj.write('#CONTEXT '+context+'\n')    
         else:
              self.f_obj.write(' CONTEXT '+contexts[0]+'\n')    
-        self.f_obj.write('DATE_FORMAT '+date_fmt+'\n')
+        if DATE_FMT == '%d/%m/%Y':
+            dfmt = 'dd/mm/yyyy'
+        elif DATE_FMT == '%m/%d/%Y':            
+            dfmt = 'mm/dd/yyyy'
+        else:
+            raise TypeError('Date format specifer must be either %d/%m%/Y or %m/%d/%Y')
+        self.f_obj.write('DATE_FORMAT '+dfmt+'\n')
         self.f_obj.write('END SETTINGS\n')
         return 
     
@@ -1006,32 +1114,32 @@ class tsproc(base_block):
         out_blocks = []
                 
         for block in self.blocks:           
-            if block.data_type == series:   
-                if block.role == 'final' and block.context != pest_context:
+            if block.data_type == SERIES:   
+                if block.role == 'final' and block.context != PEST_CONTEXT:
                     self.f_obj.write(' '+block.data_type+' '+block.name+'\n')
                     out_blocks.append(block)
         
         for block in self.blocks:
-            if block.data_type == vtable:
-                if block.role == 'final' and block.context != pest_context:
+            if block.data_type == VTABLE:
+                if block.role == 'final' and block.context != PEST_CONTEXT:
                     self.f_obj.write(' '+block.data_type+' '+block.name+'\n')
                     out_blocks.append(block)
                     
         for block in self.blocks:
-            if block.data_type == stable:
-                if block.role == 'final' and block.context != pest_context:
+            if block.data_type == STABLE:
+                if block.role == 'final' and block.context != PEST_CONTEXT:
                     self.f_obj.write(' '+block.data_type+' '+block.name+'\n')
                     out_blocks.append(block)
         
         for block in self.blocks:
-            if block.data_type == ctable:
-                if block.role == 'final' and block.context != pest_context:
+            if block.data_type == CTABLE:
+                if block.role == 'final' and block.context != PEST_CONTEXT:
                     self.f_obj.write(' '+block.data_type+' '+block.name+'\n')
                     out_blocks.append(block) 
         
         for block in self.blocks:
-            if block.data_type == etable:
-                if block.role == 'final' and block.context != pest_context:
+            if block.data_type == ETABLE:
+                if block.role == 'final' and block.context != PEST_CONTEXT:
                     self.f_obj.write(' '+block.data_type+' '+block.name+'\n')
                     out_blocks.append(block)                                                  
         
@@ -1043,13 +1151,13 @@ class tsproc(base_block):
     #-----------------------------------
     #--write pest
     def write_pest(self,tpl_file_list,mod_file_list,obs_blocks,mod_blocks,\
-                   svd=False,parms=None,parm_grp=None,context=pest_context,\
+                   svd=False,parms=None,parm_grp=None,context=PEST_CONTEXT,\
                    role='None',global_maxmin=None):
         
         #--some defense
         final_blocks = self.get_blocks(role='final')        
-        for o in obs_blocks:
-            assert o in final_blocks, 'block not in final blocks: '+str(o)                    
+        for m in mod_blocks:
+            assert m in final_blocks, 'block not in final blocks: '+str(m)                    
         assert len(tpl_file_list) == len(mod_file_list)
         assert len(obs_blocks) == len(mod_blocks)          
         for tpl in tpl_file_list:
@@ -1067,8 +1175,8 @@ class tsproc(base_block):
         this_item_keys.append('MODEL_COMMAND_LINE')
         this_item_values.append('model.bat')
         if svd:
-            this_item_values.append('TRUNCATED_SVD')
-            this_item_keys.append('1.0e-4')
+            this_item_keys.append('TRUNCATED_SVD')
+            this_item_values.append('1.0e-4')
         if parms:
             this_item_keys.append('PARAMETER_DATA_FILE')
             this_item_values.append(parms)
@@ -1079,18 +1187,8 @@ class tsproc(base_block):
         this_item_values.append('pest.pst')
         
         #--loop over each block in mod_bocks                        
-        for b_idx in range(len(mod_blocks)):
-            
-            m_block = mod_blocks[b_idx]
-            #o_block = obs_blocks[b_idx]
-            #--find the corresponding o_block using re
-            o_block = None
-            for o in obs_blocks:
-                if re.search(m_block.name,o.name) != None:
-                    o_block = o                
-            if o_block == None:
-                raise IndexError, 'obs_block corresponding to mod_block '+m_block.name+' not found'
-                                                 
+        for m_block,o_block in zip(mod_blocks,obs_blocks):
+                                                                       
             assert o_block.data_type == m_block.data_type,\
                    o_block.name+' not the same dtype as '+m_block.name
                    
@@ -1122,67 +1220,67 @@ class tsproc(base_block):
 
 #-------------------------------------------------------------------------------         
 #--for testing
+if __name__ == '__main__':
+    #--'obs' series work
+    obsfile = 'test_obs.ssf'
+    obslist = ['ser1_o','ser2_o','ser3_o']
 
-#--'obs' series work
-#obsfile = 'test_obs.ssf'
-#obslist = ['ser1_o','ser2_o','ser3_o']
-#
-#tsproc_obj = tsproc('tsproc_test.dat')
-#tsproc_obj.get_series_ssf(obslist,obsfile)
-#tsproc_obj.get_series_swr_flow([1,2,3],'qeflow','swr_binfile.fls','01/01/2001',prefix='o')
-#
-#current_blocks = tsproc_obj.get_blocks(operations = 'get_series_swr_flow') 
-#tsproc_obj.reduce_time(current_blocks,'02/01/2000')
-#current_blocks = tsproc_obj.get_blocks(operations = 'reduce_time') 
-#
-#tsproc_obj.volume_calc(current_blocks,'tsproc_test.dat')
-#
-#tsproc_obj.drawdown(current_blocks,'tsproc_test.dat')
-#dt_list = [[['01/01/2001','02/01/2001'],['01/01/2001','02/01/2001']],\
-#          [['00:00:00','01:01:01'],['00:00:00','01:01:01']]]
-#current_blocks = tsproc_obj.get_blocks(operations = 'drawdown')           
-#tsproc_obj.statistics(current_blocks,['sum','junk'],date_time_list=dt_list)
-#
-#tsproc_obj.difference_2_series(current_blocks,current_blocks)
-#tsproc_obj.series_avg(current_blocks,'tsproc_test.dat')
-#vtables_obs = tsproc_obj.get_blocks(dtype=vtable)
-#tsproc_obj.vol_2_series(vtables_obs,role='final')
-##tsproc_obj.erase_entity(swr_blocks)
-#obs_final_blocks = tsproc_obj.get_blocks(role='final')
-#
-##--'mod' series work
-#obsfile = 'test_mod.ssf'
-#obslist = ['ser1_m','ser2_m','ser3_m']
-#tsproc_obj2 = tsproc('temp.dat')
-#tsproc_obj2.get_series_ssf(obslist,obsfile,context='pest_prep')
-#tsproc_obj2.get_series_swr_flow([1,2,3],'qeflow','swr_binfile.fls','01/01/2001',\
-#            prefix='m',context='pest_prep')
-#
-#current_blocks = tsproc_obj2.get_blocks(operations = 'get_series_swr_flow') 
-#tsproc_obj2.reduce_time(current_blocks,'02/01/2000')
-#current_blocks = tsproc_obj2.get_blocks(operations = 'reduce_time') 
-#
-#tsproc_obj2.volume_calc(current_blocks,'tsproc_test.dat')
-#
-#tsproc_obj2.drawdown(current_blocks,'tsproc_test.dat')
-#dt_list = [[['01/01/2001','02/01/2001'],['01/01/2001','02/01/2001']],\
-#          [['00:00:00','01:01:01'],['00:00:00','01:01:01']]]
-#current_blocks = tsproc_obj2.get_blocks(operations = 'drawdown')           
-#tsproc_obj2.statistics(current_blocks,['sum','junk'],date_time_list=dt_list)
-#
-#tsproc_obj2.difference_2_series(current_blocks,current_blocks)
-#tsproc_obj2.series_avg(current_blocks,'tsproc_test.dat')
-#vtables_obs = tsproc_obj2.get_blocks(dtype=vtable)
-#tsproc_obj2.vol_2_series(vtables_obs,role='final')
-#
-#mod_final_blocks = tsproc_obj2.get_blocks(role='final')
-#
-#wght_list = []
-#for b in mod_final_blocks:
-#    wght_list.append(1.0)
-#
-#tsproc_obj.write_pest(['tpl1.tpl','tpl2.tpl'],['mod1.dat','mod2.dat'],\
-#                      obs_final_blocks,mod_final_blocks,wght_list)
-#
-#
-#tsproc_obj.write_tsproc()
+    tsproc_obj = tsproc('tsproc_test.dat')
+    tsproc_obj.get_series_ssf(obslist,obsfile)
+    tsproc_obj.get_series_swr_flow([1,2,3],'qeflow','swr_binfile.fls','01/01/2001',prefix='o')
+
+    current_blocks = tsproc_obj.get_blocks(operations = 'get_series_swr_flow') 
+    tsproc_obj.reduce_time(current_blocks,'02/01/2000')
+    current_blocks = tsproc_obj.get_blocks(operations = 'reduce_time') 
+
+    tsproc_obj.volume_calc(current_blocks,'tsproc_test.dat')
+
+    tsproc_obj.drawdown(current_blocks,'tsproc_test.dat')
+    dt_list = [[['01/01/2001','02/01/2001'],['01/01/2001','02/01/2001']],\
+              [['00:00:00','01:01:01'],['00:00:00','01:01:01']]]
+    current_blocks = tsproc_obj.get_blocks(operations = 'drawdown')           
+    tsproc_obj.statistics(current_blocks,['sum','junk'],date_time_list=dt_list)
+
+    tsproc_obj.difference_2_series(current_blocks,current_blocks)
+    tsproc_obj.series_avg(current_blocks,'tsproc_test.dat')
+    vtables_obs = tsproc_obj.get_blocks(dtype=VTABLE)
+    tsproc_obj.vol_2_series(vtables_obs,role='final')
+    #tsproc_obj.erase_entity(swr_blocks)
+    obs_final_blocks = tsproc_obj.get_blocks(role='final')
+
+    #--'mod' series work
+    obsfile = 'test_mod.ssf'
+    obslist = ['ser1_m','ser2_m','ser3_m']
+    tsproc_obj2 = tsproc('temp.dat')
+    tsproc_obj2.get_series_ssf(obslist,obsfile,context='pest_prep')
+    tsproc_obj2.get_series_swr_flow([1,2,3],'qeflow','swr_binfile.fls','01/01/2001',\
+                prefix='m',context='pest_prep')
+
+    current_blocks = tsproc_obj2.get_blocks(operations = 'get_series_swr_flow') 
+    tsproc_obj2.reduce_time(current_blocks,'02/01/2000')
+    current_blocks = tsproc_obj2.get_blocks(operations = 'reduce_time') 
+
+    tsproc_obj2.volume_calc(current_blocks,'tsproc_test.dat')
+
+    tsproc_obj2.drawdown(current_blocks,'tsproc_test.dat')
+    dt_list = [[['01/01/2001','02/01/2001'],['01/01/2001','02/01/2001']],\
+              [['00:00:00','01:01:01'],['00:00:00','01:01:01']]]
+    current_blocks = tsproc_obj2.get_blocks(operations = 'drawdown')           
+    tsproc_obj2.statistics(current_blocks,['sum','junk'],date_time_list=dt_list)
+
+    tsproc_obj2.difference_2_series(current_blocks,current_blocks)
+    tsproc_obj2.series_avg(current_blocks,'tsproc_test.dat')
+    vtables_obs = tsproc_obj2.get_blocks(dtype=VTABLE)
+    tsproc_obj2.vol_2_series(vtables_obs,role='final')
+
+    mod_final_blocks = tsproc_obj2.get_blocks(role='final')
+
+    wght_list = []
+    for b in mod_final_blocks:
+        wght_list.append(1.0)
+
+    tsproc_obj.write_pest(['tpl1.tpl','tpl2.tpl'],['mod1.dat','mod2.dat'],\
+                          obs_final_blocks,mod_final_blocks,wght_list)
+
+
+    tsproc_obj.write_tsproc()

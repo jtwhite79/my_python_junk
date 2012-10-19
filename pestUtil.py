@@ -1,11 +1,10 @@
 import re
 import os
-from datetime import datetime
+from datetime import datetime,timedelta
 import shutil
 import numpy as np 
 import pandas
-
-
+import pylab
 
 prgp_reg = re.compile('\* parameter groups')
 par_reg = re.compile('\* parameter data')
@@ -21,6 +20,9 @@ end_reg = re.compile('completed')
 
 vario_type_dict = {'spherical':'1','exponential':'2','gaussian':'3','power':'4'}
 structure_list = [['STRUCTURE',['NUGGET','TRANSFORM','NUMVARIOGRAM',['VARNAME','CONTRIB']]],['VARIOGRAM',['VARTYPE','BEARING','A','ANISOTROPY']]]
+
+
+
 
 
 
@@ -131,12 +133,43 @@ def write_coords(fname,namelist,xlist,ylist,zonelist,vlist):
     f.close()
 
 
+def load_smp_from_tsproc(filename):
+    '''loads the time series from a tsproc output file to an smp instance
+    '''
+    f = open(filename,'r')
+    s = smp(date_fmt='%m/%d/%Y')
+    while True:
+        line = f.readline()
+        if line == '':
+            break
+        if 'TIME_SERIES' in line.upper():
+            raw = line.strip().split()
+            site_name = raw[1].replace('"','')
+            record = []
+            while True:
+                line2 = f.readline()
+                if line2.strip() == '':
+                    break
+                line2 = s.parse_line(line2)
+                if line2[0] != site_name:
+                    raise IndexError('site names dont match')
+                record.append(line2[1:])
+            s.records[site_name] = np.array(record)
+    f.close()
+    return s
+
+
+
+
+
+
+
 class smp():
     '''simple, poorly designed class to handle site sample file types
     casts date and time fields to a single datetime object    
     '''
-    def __init__(self,fname,date_fmt='%d/%m/%Y',load=False,pandas=False):
-        assert os.path.exists(fname)
+    def __init__(self,fname=None,date_fmt='%d/%m/%Y',load=False,pandas=False):
+        #assert os.path.exists(fname)
         self.fname = fname
         self.date_fmt = date_fmt
         self.site_index = 0
@@ -172,9 +205,10 @@ class smp():
         '''
         for site,record in self.records.iteritems():
             if site in other.records.keys():
-                other_record = other.records[site]                
+                other_record = other.records[site]
+                                
                 for other_dt,other_val in other_record:
-                    if other_dt in record:
+                    if other_dt in record[:,0]:
                         if how == 'average':
                             record[np.where(record[:,0]==other_dt),1] = (record[np.where(record[:,0]==other_dt),1] + other_val) / 2.0
                         elif how == 'right':
@@ -183,12 +217,27 @@ class smp():
                             pass
                     else:                        
                         record = np.vstack((record,np.array([other_dt,other_val])))
-
+                        #print record[-1]                        
                 #--sort the record - probably out of order
-                record = np.sort(record,axis=0)
-                print                
+                
+                sidx = np.argsort(record[:,0])
+                record = record[sidx]                
+                self.records[site] = record                               
 
-   
+    def plot(self,plt_name):
+        fig = pylab.figure()
+        ax = pylab.subplot(111)
+        for site,record in self.records.iteritems():
+            ax.plot(record[:,0],record[:,1],label=site)
+        ax.grid()
+        ax.legend()
+        if plt_name:
+            pylab.savefig(plt_name,dpi=300,format=plt_name.split('.')[-1],bbox_inches='tight')
+            pylab.close('all')
+            return
+        else:
+            return ax
+
 
     def load(self,site='all'):
         '''if site_name is 'all', loads all records
@@ -234,6 +283,7 @@ class smp():
                 return self.records2dataframe(records)
             else:
                 return records
+    
     
     def records2dataframe(self,records):
         ''' to cast the dict records to a pandas dataframe
@@ -313,9 +363,96 @@ class smp():
         else:
             return unique                  
 
+    def set_daterange(self,start,end,site_name=None):
+        if site_name != None:
+            rec = []
+            for dt,val in self.records[site_name]:
+                if dt >=start and dt <=end:
+                    rec.append([dt,val])
+            self.records[site_name] = np.array(rec)
+        else:
+            for site,record in self.records.iteritems():
+                rec = []
+                for dt,val in record:
+                    if dt >=start and dt <=end:
+                        rec.append([dt,val])
+                self.records[site] = np.array(rec)
+
+    
+    def write_daterange(self,site_name,file_name,start,end,step):
+        f = open(file_name,'w')
+        sec = timedelta(seconds=1)
+        day = start
+        record = self.records[site_name]
+        while day < record[0,0]:
+            day += step
+
+        while day < end:
+            entries = record[np.where(np.logical_and(record[:,0]>=day,record[:,0]<day+step))]
+            if entries.shape[0] > 0:
+                if day < record[0,0]:
+                    f.write((record[0,0]+sec).strftime(self.date_fmt+' %H:%M:%S')+' '+(start).strftime(self.date_fmt+' %H:%M:%S')+'\n')
+                elif day + step > end:
+                    f.write((day+sec).strftime(self.date_fmt+' %H:%M:%S')+' '+(end).strftime(self.date_fmt+' %H:%M:%S')+'\n')
+                    break
+            day += step
+        f.close()
+
+
+    def get_daterange(self,site_name=None,startmin=datetime(year=1,month=1,day=1,hour=12),endmax=datetime(year=2200,month=12,day=31,hour=12)):
+        '''get the date range of records
+        if site_name == None - get the total date range
+        if site_name == 'all' - get a dictionary of the date range for each record
+        records must be loaded
+        '''
+
+        if site_name.upper() == 'ALL':
+            start_dict = {}
+            end_dict = {}
+            for site,record in self.records.iteritems():
+                start,end = datetime(year=2200,month=1,day=1),datetime(year=1,month=1,day=1)        
+                for dt,val in record:
+                    if dt < start and dt >= startmin:
+                        start = dt
+                    if dt > end and dt <= endmax:
+                        end = dt
+                start_dict[site] = start
+                end_dict[site] = end                                                                
+            return start_dict,end_dict
+
+
+        else:
+            start,end = datetime(year=2200,month=1,day=1),datetime(year=1,month=1,day=1)        
+            if site_name != None:
+                for dt,val in self.records[site_name]:
+                    if dt < start and dt >= startmin:
+                        start = dt
+                    if dt > end and dt <= endmax:
+                        end = dt
+                return start,end
+            else:
+                for site,record in self.records.iteritems():
+                    for dt,val in record:
+                        if dt < start and dt >= startmin:
+                            start = dt
+                        if dt > end and dt <= endmax:
+                            end = dt
+                return start,end
+            #f = open(self.fname,'r')
+            #for line in f:
+            #    line = self.parse_line(line)
+            #    if line[0] == site_name or site_name == None:
+            #        if line[1] < start and line[1] >= startmin:
+            #            start = line[1]
+            #        if line[1] > end and line[1] <= endmax:
+            #            end = line[1] 
+            return start,end              
+
+
     def parse_line(self,line):
         ''' parse the string line into [name,datetime,None,value]
         '''        
+        #print line
         raw = line.strip().split() 
         if len(raw) != 4:
             print raw
@@ -340,8 +477,13 @@ class smp():
         if len(self.records) > 0:
             f = open(fname,'w')
             for site,data in self.records.iteritems():
-                for [dt,value] in data:                
-                    f.write(str(site).ljust(10)+' '+dt.strftime('%d/%m/%Y')+' 00:00:00 {0:15.6e}\n'.format(value))              
+                if self.pandas:                                        
+                    for dt,value in zip(data.index,data.values):                
+                        f.write(str(site).ljust(10)+' '+dt.strftime(self.date_fmt+' %H:%M:%S')+'  {0:25.8e}\n'.format(value))              
+                else:
+                    for dt,value in data:                
+                        f.write(str(site).ljust(10)+' '+dt.strftime(self.date_fmt+' %H:%M:%S')+'  {0:25.8e}\n'.format(value))              
+
             f.close()            
 
 
@@ -825,11 +967,13 @@ def load_matrix(file_name):
 def write_structure(file_name,structure_name,nugget=0.0,\
                     transform='none',numvariogram=1,\
                     variogram_name='var1',sill=1.0,\
-                    vartype=2,bearing=90.0,a=1.0,anisotropy=1.0):
+                    vartype=2,bearing=90.0,a=1.0,anisotropy=1.0,mean=None):
     f_out = open(file_name,'w')
     f_out.write('STRUCTURE '+structure_name+'\n')
     f_out.write(' NUGGET {0:15.6e}\n'.format(nugget))
     f_out.write(' TRANSFORM '+transform+'\n')
+    if mean:
+        f_out.write(' MEAN {0:15.6e}\n'.format(mean))
     f_out.write(' NUMVARIOGRAM '+str(numvariogram)+'\n')
     f_out.write(' VARIOGRAM '+variogram_name+' {0:15.6e}\n'.format(sill))
     f_out.write('END STRUCTURE\n\n')

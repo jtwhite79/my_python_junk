@@ -80,6 +80,19 @@ def add_attribute(new_attirbs,shape_name):
                 shp_new.record(this_rec)
     return shp_new
 
+
+def get_fieldnames(shape_name,ignorecase=False):
+    shp = Reader(shape_name)
+    header = shp.dbfHeader()
+    names = []
+    for item in header:
+        if ignorecase:
+            names.append(item[0].upper())
+        else:
+            names.append(item[0])
+    return names
+
+
 def load_as_dict(shape_name,attrib_name_list=None,loadShapes=True):
     '''loads all the shapefile shapes and records
     only the attributes listed in attrib_name_list are loaded

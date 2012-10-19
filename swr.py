@@ -533,38 +533,39 @@ class ds_13a():
                                     
 
 class swr_timestep():
-    def __init__(self,filename,reaches,rain_entries,evap_entries,lat_entries,igeonumr,igeo,start,end,step):        
+    def __init__(self,filename,reaches,rain_entries,evap_entries,lat_entries,igeonumr,igeo,sp_start,datadir='.\\'):        
+        '''sp_start is a list of datetimes marking the start of each stress period
+        '''
         self.filename = filename
         self.reaches = reaches
         self.nreach = len(reaches)
         self.ds_5 = ds_5()
-        self.ds_6 = ds_6(reaches)
+        self.ds_6 = ds_6(reaches,filename_prefix=datadir+'ds_6_')
         self.ds_7b = ds_7b(rain_entries)
         self.ds_8b = ds_8b(evap_entries)
-        self.ds_10 = ds_10(igeonumr)
-        self.ds_11 = ds_11(igeo)
+        self.ds_10 = ds_10(igeonumr,filename_prefix=datadir+'ds_10_')
+        self.ds_11 = ds_11(igeo,filename_prefix=datadir+'ds_11_')
         self.sp_num = 1
-        self.start = start
-        self.end = end
-        self.step = step
+        self.sp_start = sp_start
+                
         
 
 
     def write_transient_sequence(self):        
         f_obj = open(self.filename,'w')      
         
-        self.ds_5.irdbnd,e6 = self.ds_6.get_entry(self.start)        
-        self.ds_5.irdrai,e7b = self.ds_7b.get_entry(self.start)        
-        self.ds_5.irdevp,e8b = self.ds_8b.get_entry(self.start)                    
-        irdgeo_10,e10 = self.ds_10.get_entry(self.start)
-        irdgeo_11,e11 = self.ds_11.get_entry(self.start)
+        self.ds_5.irdbnd,e6 = self.ds_6.get_entry(self.sp_start[0])        
+        self.ds_5.irdrai,e7b = self.ds_7b.get_entry(self.sp_start[0])        
+        self.ds_5.irdevp,e8b = self.ds_8b.get_entry(self.sp_start[0])                    
+        irdgeo_10,e10 = self.ds_10.get_entry(self.sp_start[0])
+        irdgeo_11,e11 = self.ds_11.get_entry(self.sp_start[0])
         if irdgeo_10 > 0 or irdgeo_11 > 0:
             self.ds_5.irdgeo = 1
 
         #--not implemented
         self.ds_5.irdlin = 0
 
-        e5 = self.ds_5.get_entry(self.sp_num,self.start)
+        e5 = self.ds_5.get_entry(self.sp_num,self.sp_start[0])
 
         f_obj.write(e5)
         if self.ds_5.irdbnd > 0:
@@ -578,13 +579,14 @@ class swr_timestep():
         if self.ds_5.irdgeo > 0:
             f_obj.write(e10)
             f_obj.write(e11)
-        day = self.start + self.step        
-        while day <= self.end:            
-            print day
-            self.ds_5.irdbnd,e6 = self.ds_6.get_entry(day)        
-            self.ds_5.irdrai,e7b = self.ds_7b.get_entry(day)        
-            self.ds_5.irdevp,e8b = self.ds_8b.get_entry(day)                    
-            e5 = self.ds_5.get_entry(self.sp_num,day)
+        for i in range(2,len(self.sp_start)):      
+            start = self.sp_start[i-1]
+            end = self.sp_start[i] - timedelta(seconds=1)
+            print start
+            self.ds_5.irdbnd,e6 = self.ds_6.get_entry(start)        
+            self.ds_5.irdrai,e7b = self.ds_7b.get_entry(start)        
+            self.ds_5.irdevp,e8b = self.ds_8b.get_entry(start)                    
+            e5 = self.ds_5.get_entry(self.sp_num,start)
             
             f_obj.write(e5)
             if self.ds_5.irdbnd > 0:
@@ -593,8 +595,7 @@ class swr_timestep():
                 f_obj.write(e7b)              
             if self.ds_5.irdevp > 0:
                 f_obj.write(e8b)
-            
-            day += self.step
+                       
             self.sp_num += 1                
 
         f_obj.close()

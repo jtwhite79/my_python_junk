@@ -468,7 +468,7 @@ END MODULE INTER
 !     Last change:  J     9 Sep 2004    5:38 pm
 module tspvar
 
-       integer, parameter    :: MAXSERIES=10000
+       integer, parameter    :: MAXSERIES=100000
        integer, parameter    :: MAXSERIESREAD=50
        integer, parameter    :: MAXSTABLE=300
        integer, parameter    :: MAXCTABLE=500
@@ -5839,6 +5839,9 @@ subroutine series_time_average(ifail)
        do i=1,MAXSERIES
          if(.not.series(i)%active) go to 375
        end do
+       do i=1,MAXSERIES
+           write(recunit,*) series(i)%name
+       end do    
        write(amessage,372)
 372    format('no more time series available for data storage - increase MAXSERIES and ', &
        'recompile program.')
@@ -5912,7 +5915,9 @@ subroutine series_time_average(ifail)
              if((series(iseries)%days(j).gt.ndays2(idate)).or.                    &
                ((series(iseries)%days(j).eq.ndays2(idate)).and.(series(iseries)%secs(j).gt.nsecs2(idate))))then
                  idate=idate+1
-                 if(idate.gt.ndate) go to 750
+                 if(idate.gt.ndate) then
+                     go to 800
+                 end if                     
              else
                iswitch=1
                iterm=iterm+1
