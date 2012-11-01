@@ -1,6 +1,12 @@
 import numpy as np
 from datetime import datetime,timedelta
+import pandas
 import shapefile
+
+
+ds_1_h = ['#NREACHES','ISWRONLY','ISWRCBC','ISWRPRGF','ISWRPSTG','ISWRPQAQ','ISWRPQM','ISWRPSTR','ISWRFRN','ISWROPT']
+ds_2_h = ['#DLENCONV','TIMECONV','RTINI','RTMIN','RTMAX','RTPRN','RTMULT','NTMULT','DMINGRAD','DMNDEPTH','DMAXRAI','DMAXSTG','DMAXINF']
+ds_3_h = ['#ISOLVER','NOUTER','NINNER','IBT','TOLS','TOLR','TOLA','DAMPSS','DAMPTR','IPRSWR','MUTSWR','IPC','NLEVELS','DROPTOL','IBTPRT']
 
 ds_13a_h = ['ISTRRCH','ISTRNUM','ISTRCONN','ISTRTYPE','NSTRPTS',\
              'STRCD','STRCD2','STRCD3','STRINV','STRINV2','STRWID',\
@@ -64,8 +70,174 @@ def load_ds4b(filename):
             ds4b[reach] = conn
     f.close()
     return ds4b       
+
+
+class ds_3():
+    def __init__(self,solver=2,nouter=50,ninner=100,ibt=10,tols=1.0e-3,tolr=1.0+3,tola=0.1,dampss=1.0,damptr=1.0,iprswr=0,mutswr=0,ipc=4,nlevels=7,droptol=1.0e-3,ibtprt=-1):
+        self.solver = int(solver)
+        self.nouter = int(nouter)
+        self.ninner = int(ninner)
+        self.ibt = int(ibt)
+        self.tols = float(tols)
+        self.tolr = float(tolr)
+        self.tola = float(tola)
+        self.dampss = float(dampss)
+        self.damptr = float(damptr)
+        self.iprswr = int(iprswr)
+        self.mutswr = int(mutswr)
+        self.ipc = int(ipc)
+        self.nlevels = int(nlevels)
+        self.droptol = float(droptol)
+        self.ibtprt = int(ibtprt)
+    
+    def write(self,f,fmti=' {0:9.0f}',fmtf=' {0:9.3G}'):
+        f.write('# DATASET 3 - SOLVER PARAMETERS\n')
+        for h in ds_3_h:
+            f.write(h.rjust(10))
+        f.write('\n')
+        f.write(fmti.format(self.solver))
+        f.write(fmti.format(self.nouter))
+        f.write(fmti.format(self.ninner))
+        f.write(fmti.format(self.ibt))
+        f.write(fmtf.format(self.tols))
+        f.write(fmtf.format(self.tola))
+        f.write(fmtf.format(self.tolr))
+        f.write(fmtf.format(self.dampss))
+        f.write(fmtf.format(self.damptr))
+        f.write(fmti.format(self.iprswr))
+        f.write(fmti.format(self.mutswr))
+        f.write(fmti.format(self.ipc))
+        f.write(fmti.format(self.nlevels))
+        f.write(fmtf.format(self.droptol))
+        f.write(fmti.format(self.ibtprt))
+        f.write('\n\n')
+
+
+
+
+class ds_2():
+    def __init__(self,dlenconv=3.281,timeconv=86400.0,rtini=0.0,rtmin=0.0,rtmax=0.0,rtprn=0.0,tmult=1.0,nmult=1,dmingrad=1.0e-12,dmindepth=1.0e-3,dmaxrai=0.0,dmaxstg=0.0,dmaxinf=0.0):
+        self.dlenconv = float(dlenconv)
+        self.timeconv = float(timeconv)
+        self.rtini = float(rtini)
+        self.rtmin = float(rtmin)
+        self.rtmax = float(rtmax)
+        self.rtprn = float(rtprn)
+        self.tmult = float(tmult)
+        self.nmult = int(nmult)
+        self.dmingrad = float(dmingrad)
+        self.dmindepth = float(dmindepth)
+        self.dmaxrai = float(dmaxrai)
+        self.dmaxstg = float(dmaxstg)
+        self.dmaxinf = float(dmaxinf)
+
+    def write(self,f,fmti=' {0:9.0f}',fmtf=' {0:9.3G}'):
+        f.write('# DATASET 2 - SOLUTION CONTROLS\n')
+        for h in ds_2_h:
+            f.write(h.rjust(10))
+        f.write('\n')
+        f.write(fmtf.format(self.dlenconv))
+        f.write(fmtf.format(self.timeconv))
+        f.write(fmtf.format(self.rtini))
+        f.write(fmtf.format(self.rtmin))
+        f.write(fmtf.format(self.rtmax))
+        f.write(fmtf.format(self.rtprn))
+        f.write(fmtf.format(self.tmult))
+        f.write(fmti.format(self.nmult))
+        f.write(fmtf.format(self.dmingrad))
+        f.write(fmtf.format(self.dmindepth))
+        f.write(fmtf.format(self.dmaxrai))
+        f.write(fmtf.format(self.dmaxstg))
+        f.write(fmtf.format(self.dmaxinf))
+        f.write('\n\n')
+        
            
 
+class ds_1():
+    def __init__(self,nreaches,iswronly=0,iswrcbc=0,iswrprgf=0,iswrpstg=0,iswrpqaq=0,iswrpqm=0,iswrpstr=0,iswrfrn=0,options=None):
+        self.nreaches = int(nreaches)
+        self.iswronly = int(iswronly)
+        self.iswrcbc = int(iswrcbc)
+        self.iswrprgf = int(iswrprgf)
+        self.iswrpstg = int(iswrpstg)
+        self.iswrpqaq = int(iswrpqaq)
+        self.iswrpqm = int(iswrpqm)
+        self.iswrpstr = int(iswrpstr)
+        self.iswrfrn = int(iswrfrn)
+        if options:
+            self.options = options
+            self.iswropt = 'SWROPTIONS'
+    
+    def add_2_namefile(self,modelname,fmti = ' {0:6.0f} '):        
+        new_lines = []
+        if self.iswrprgf < 0:
+            new_lines.append('DATA(BINARY)'+fmti.format(-1*self.iswrprgf)+modelname+'.fls\n')
+        if self.iswrprgf > 0:
+            new_lines.append('DATA'+fmti.format(self.iswrprgf)+modelname+'.fls\n')        
+        if self.iswrpstg < 0:
+            new_lines.append('DATA(BINARY)'+fmti.format(-1*self.iswrpstg)+modelname+'.stg\n')
+        if self.iswrpstg > 0:
+            new_lines.append('DATA'+fmti.format(self.iswrpstg)+modelname+'.stg\n')
+        if self.iswrpqaq < 0:
+            new_lines.append('DATA(BINARY)'+fmti.format(-1*self.iswrpqaq)+modelname+'.aqx\n')
+        if self.iswrpqaq > 0:
+            new_lines.append('DATA'+fmti.format(self.iswrpqaq)+modelname+'.aqx\n')
+        if self.iswrpqm < 0:
+            new_lines.append('DATA(BINARY)'+fmti.format(-1*self.iswrpqm)+modelname+'.pqm\n')
+        if self.iswrpqm > 0:
+            new_lines.append('DATA'+fmti.format(self.iswrpqm)+modelname+'.pqm\n')
+        if self.iswrpstr < 0:
+            new_lines.append('DATA(BINARY)'+fmti.format(-1*self.iswrpstr)+modelname+'.str\n')
+        if self.iswrpstr > 0:
+            new_lines.append('DATA'+fmti.format(self.iswrpstr)+modelname+'.str\n')       
+        namefile = modelname+'.nam'          
+        f = open(namefile,'r')
+        lines = []
+        for line in f:
+            lines.append(line)
+        f.close()
+        lines.insert(0,'# modified by swr generator on '+str(datetime.now())+'\n')
+        lines.append('SWR 106 '+modelname+'.swr')
+        for line in new_lines:
+            lines.append(line)
+        f = open(namefile,'w')
+        for line in lines:
+            f.write(line)
+           
+
+
+
+
+    def write(self,f_obj):
+        self.write_1a(f_obj)
+        if self.iswropt:
+            self.write_1b(f_obj)
+    
+    def write_1a(self,f,fmti=' {0:9.0f}'):
+
+        f.write('# DATASET 1A\n')
+        line = ''
+        for h in ds_1_h:
+            line += h.rjust(10)
+        f.write(line+'\n')
+        f.write(fmti.format(self.nreaches))
+        f.write(fmti.format(self.iswronly))
+        f.write(fmti.format(self.iswrcbc))
+        f.write(fmti.format(self.iswrprgf))
+        f.write(fmti.format(self.iswrpstg))
+        f.write(fmti.format(self.iswrpqaq))
+        f.write(fmti.format(self.iswrpqm))
+        f.write(fmti.format(self.iswrpstr))
+        f.write(fmti.format(self.iswrfrn))
+        if self.iswropt:
+            f.write(' '+self.iswropt)
+        f.write('\n\n')
+
+    def write_1b(self,f):
+        f.write('# DATASET 1B - SWR1 OPTIONS\n')
+        for opt in self.options:
+            f.write(opt+'\n')
+        f.write('END\n\n')
 
 
 class ds_13a():
@@ -533,10 +705,10 @@ class ds_13a():
                                     
 
 class swr_timestep():
-    def __init__(self,filename,reaches,rain_entries,evap_entries,lat_entries,igeonumr,igeo,sp_start,datadir='.\\'):        
+    def __init__(self,f_obj,reaches,rain_entries,evap_entries,lat_entries,igeonumr,igeo,sp_dates,datadir='.\\'):        
         '''sp_start is a list of datetimes marking the start of each stress period
         '''
-        self.filename = filename
+        self.f_obj = f_obj
         self.reaches = reaches
         self.nreach = len(reaches)
         self.ds_5 = ds_5()
@@ -545,61 +717,142 @@ class swr_timestep():
         self.ds_8b = ds_8b(evap_entries)
         self.ds_10 = ds_10(igeonumr,filename_prefix=datadir+'ds_10_')
         self.ds_11 = ds_11(igeo,filename_prefix=datadir+'ds_11_')
+        self.ds_14 = df_14(reaches,filename_prefix=datadir+'ds_14_')        
         self.sp_num = 1
-        self.sp_start = sp_start
-                
-        
-
-
-    def write_transient_sequence(self):        
-        f_obj = open(self.filename,'w')      
-        
-        self.ds_5.irdbnd,e6 = self.ds_6.get_entry(self.sp_start[0])        
-        self.ds_5.irdrai,e7b = self.ds_7b.get_entry(self.sp_start[0])        
-        self.ds_5.irdevp,e8b = self.ds_8b.get_entry(self.sp_start[0])                    
-        irdgeo_10,e10 = self.ds_10.get_entry(self.sp_start[0])
-        irdgeo_11,e11 = self.ds_11.get_entry(self.sp_start[0])
-        if irdgeo_10 > 0 or irdgeo_11 > 0:
-            self.ds_5.irdgeo = 1
-
-        #--not implemented
-        self.ds_5.irdlin = 0
-
-        e5 = self.ds_5.get_entry(self.sp_num,self.sp_start[0])
-
-        f_obj.write(e5)
-        if self.ds_5.irdbnd > 0:
-            f_obj.write(e6)                                           
-        if self.ds_5.irdrai > 0:
-            f_obj.write(e7b)              
-        if self.ds_5.irdevp > 0:
-            f_obj.write(e8b)
-        if self.ds_5.irdlin > 0:
-            raise NotImplementedError('latereal inflow not supported yet..')
-        if self.ds_5.irdgeo > 0:
-            f_obj.write(e10)
-            f_obj.write(e11)
-        for i in range(2,len(self.sp_start)):      
-            start = self.sp_start[i-1]
-            end = self.sp_start[i] - timedelta(seconds=1)
-            print start
+        self.sp_dates = sp_dates        
+                        
+    def write_transient_sequence(self):                
+        f_obj = self.f_obj
+        for start in self.sp_dates:             
+            #print 'stress period',self.sp_num,' date ',start
             self.ds_5.irdbnd,e6 = self.ds_6.get_entry(start)        
-            self.ds_5.irdrai,e7b = self.ds_7b.get_entry(start)        
-            self.ds_5.irdevp,e8b = self.ds_8b.get_entry(start)                    
-            e5 = self.ds_5.get_entry(self.sp_num,start)
             
-            f_obj.write(e5)
-            if self.ds_5.irdbnd > 0:
-                f_obj.write(e6)                                           
-            if self.ds_5.irdrai > 0:
-                f_obj.write(e7b)              
-            if self.ds_5.irdevp > 0:
-                f_obj.write(e8b)
-                       
-            self.sp_num += 1                
+            self.ds_5.irdrai,e7b = self.ds_7b.get_entry(start)        
+            
+            self.ds_5.irdevp,e8b = self.ds_8b.get_entry(start) 
+            
+            self.ds_5.irdlin = 0 
+            self.ds_5.irdstr = 0 
+            self.ds_5.irdaux = 0                 
+            
+            irdgeo_10,e10 = self.ds_10.get_entry(start)
+            irdgeo_11,e11 = self.ds_11.get_entry(start)
+            if irdgeo_10 > 0 or irdgeo_11 > 0:
+                self.ds_5.irdgeo = irdgeo_10
+            else:
+                self.ds_5.irdgeo = 0
 
+            self.ds_5.irdstg,e14 = self.ds_14.get_entry(start)            
+            
+            #--write the entries for this stress period
+            e5 = self.ds_5.get_entry(self.sp_num,start)            
+            f_obj.write(e5)
+            if self.ds_5.irdbnd != 0:
+                f_obj.write(e6)                                           
+            if self.ds_5.irdrai != 0:
+                f_obj.write(e7b)              
+            if self.ds_5.irdevp != 0:
+                f_obj.write(e8b)
+            if self.ds_5.irdlin != 0:
+                raise NotImplementedError('latereal inflow not supported yet..')
+            if self.ds_5.irdgeo != 0:               
+                f_obj.write(e10)
+                f_obj.write(e11)
+            if self.ds_5.irdstg != 0:
+                f_obj.write(e14)                       
+            self.sp_num += 1                
         f_obj.close()
         return    
+
+class df_14():
+    def __init__(self,reaches,filename_prefix='df_14'):
+        self.reaches = reaches
+        self.filename_prefix = filename_prefix
+        self.stage = []
+    
+    def get_stage(self,dt):
+        '''gets a stage record
+        '''
+        reaches,vals = [],[]
+        for r in self.reaches:
+            if r.ibnd != 0 and r.isactive(dt):
+                if r.stage_series is not None and dt in r.stage_series.index:
+                    val = r.stage_series[dt]
+                    #stage.append([r.reach,val])
+                    vals.append(val)
+                    reaches.append(r.reach)
+                else:
+                    raise Exception('active reach '+str(r.reach)+' has no entry on date'+str(dt))                    
+        
+        for r in self.reaches:
+            if r.ibnd != 0 and r.isactive(dt) and r.reach not in reaches:            
+                raise Exception('active reach '+str(r.reach)+' has no entry on date'+str(dt))                    
+        return zip(reaches,vals)
+
+    def get_entry(self,dt):
+        '''gets a ds_14 entry
+        might also write a new stage record file'''
+        stage = self.get_stage(dt)
+        if stage == self.stage:
+            return 0,None
+        else:
+            print '  --stage change - ',dt
+            fname = self.filename_prefix+dt.strftime('%Y%m%d')+'.dat'
+            entry = '#DATASET 14 - IRDSTG\nOPEN/CLOSE  '+fname+'\n'
+            self.stage = stage
+            self.write(fname)            
+            return len(stage),entry
+
+            
+    def write(self,fname):
+        f = open(fname,'w')
+        f.write('#  IRCHSTG     STAGE\n')
+        for reach,stage in self.stage:
+            f.write('{0:10.0f} {1:20.8E}\n'.format(reach,stage))
+        f.close()
+                       
+
+
+
+class ds_6():
+    def __init__(self,reaches,filename_prefix='ds_6_'):
+        self.reaches = reaches
+        self.filename_prefix = filename_prefix
+        self.ibnd = []
+
+    def get_ibnd(self,dt,val=-1):
+        ibnd = []
+        for r in self.reaches:
+            if r.isactive(dt) and r.ibnd != 0:
+                ibnd.append(val)
+            else:
+                ibnd.append(0)
+        return ibnd
+    
+    def get_entry(self,dt):
+        '''gets the current filename and also might write a new ds6 file
+        '''
+        
+        #--get an ibnd for this dt
+        ibnd = self.get_ibnd(dt)
+        if self.ibnd == ibnd:            
+            return 0,None
+
+        else:
+            print '  --ibnd change - ',dt
+            fname = self.filename_prefix+dt.strftime('%Y%m%d')+'.dat'
+            entry = '#DATASET 6 - IRDBND\nOPEN/CLOSE  '+fname+'\n'
+            self.ibnd = ibnd
+            self.write(fname)            
+            return len(ibnd),entry
+
+    def write(self,fname):
+        
+        f = open(fname,'w')
+        f.write('#  IBNDRCH   ISWRBND\n')
+        for r,ibnd in zip(self.reaches,self.ibnd):
+            f.write('{0:10.0f}{1:10.0f}\n'.format(r.reach,ibnd))
+        f.close()
 
 
 class ds_10():
@@ -616,8 +869,9 @@ class ds_10():
         if dt not in self.entries.keys():
             return 0,None
         else:
-            self.write(dt,fname)            
-            return 1,'#DATASET 10 - IGEONUMR\nOPEN/CLOSE  ' + fname + '\n'
+            self.write(dt,fname) 
+            nentries = len(self.entries[dt])           
+            return nentries,'#DATASET 10 - IGEONUMR\nOPEN/CLOSE  ' + fname + '\n'
 
     def write(self,dt,filename):
         f_obj = open(filename,'w')
@@ -641,7 +895,7 @@ class ds_11():
         if dt not in self.entries.keys():
             return 0,None
         else:
-            self.write(dt,fname)            
+            self.write(dt,fname)                        
             return 1,'#DATASET 11 - IGEONUM\nOPEN/CLOSE  ' + fname + '\n'
 
     def write(self,dt,filename):
@@ -659,7 +913,7 @@ class ds_4a():
     
     def get_entry(self,filename='swr_ds4a.dat'):
         self.write(filename)
-        return 'DATASET 4A - REACH INFORMTAION\nOPEN\CLOSE  '+filename
+        return '#DATASET 4A - REACH INFORMTAION\nOPEN/CLOSE  '+filename
 
     def write(self,filename):        
         f_obj = open(filename,'w')
@@ -676,7 +930,7 @@ class ds_4b():
 
     def get_entry(self,filename='swr_ds4b.dat'):
         self.write(filename)
-        return '#DATASET 4B - CONNECTIVITY DATA\nOPEN\CLOSE  '+filename
+        return '#DATASET 4B - CONNECTIVITY DATA\nOPEN/CLOSE  '+filename
 
     def write(self,filename):              
         f_obj = open(filename,'w')
@@ -703,50 +957,14 @@ class ds_5():
         return entry
 
 
-class ds_6():
-    def __init__(self,reaches,filename_prefix='ds_6_'):
-        self.reaches = reaches
-        self.filename_prefix = filename_prefix
-        self.ibnd = []
 
-    def get_ibnd(self,dt,val=1):
-        ibnd = []
-        for r in self.reaches:
-            if r.isactive(dt) and r.ibnd != 0:
-                ibnd.append(val)
-            else:
-                ibnd.append(0)
-        return ibnd
-    
-    def get_entry(self,dt):
-        '''gets the current filename and also might write a new ds6 file
-        '''
-        
-        #--get an ibnd for this dt
-        ibnd = self.get_ibnd(dt)
-        if self.ibnd == ibnd:            
-            return 0,None
 
-        else:
-            fname = self.filename_prefix+dt.strftime('%Y%m%d')+'.dat'
-            entry = '#DATASET 6 - IRDBND\nOPEN/CLOSE  '+fname+'\n'
-            self.ibnd = ibnd
-            self.write(fname)
-            irdbnd = 1
-            return 1,entry
-
-    def write(self,fname):
-        
-        f = open(fname,'w')
-        f.write('#  IBNDRCH   ISWRBND\n')
-        for r,ibnd in zip(self.reaches,self.ibnd):
-            f.write('{0:10.0f}{1:10.0f}\n'.format(r.reach,ibnd))
-        f.close()
 
                                      
 class ds_7b():
     def __init__(self,entries):
         '''entries should be dict keyed with datetimes
+        setup for 2-D arrays only
         '''
         self.entries = entries
     
@@ -754,12 +972,13 @@ class ds_7b():
         if dt not in self.entries.keys():
             return 0,None
         else:
-            return 1,self.entries[dt]
+            return -1,self.entries[dt]
 
 
 class ds_8b():
     def __init__(self,entries):
         '''entries should be dict keyed with datetimes
+        setup for 2-D arrays only
         '''
         self.entries = entries
     
@@ -767,11 +986,7 @@ class ds_8b():
         if dt not in self.entries.keys():
             return 0,None
         else:
-            return 1,self.entries[dt]
-
-
-
-
+            return -1,self.entries[dt]
 
 
 class reach():
@@ -791,29 +1006,26 @@ class reach():
         if not isinstance(active_dt,datetime):
             raise TypeError('active_dt must be a datetime instance')
         self.active_dt = active_dt
-        self.active = False
+        self.active = False   
         self.ibnd = int(ibnd)
+        self.stage_series = None
     
     def __eq__(self,other):
         if isinstance(other,self.__class__) and self.__dict__ == other.__dict__:
             return True
         return False
-
+    def set_stage_series(self,series):
+        self.stage_series = series
 
     def isactive(self,dt):
-        if self.active_dt >= dt:
+        if self.active_dt <= dt:
             return True
         return False
 
 
-def load_reaches_from_shape(shapename,idx_dict):
-    #if idx_dict is None:
-    #    shp = shapefile.Reader(shapename)
-    #    header = shp.dbfHeader()
-    #    idx_dict = {}
-    #    for i,item in enumerate(header):
-    #        if item[0].lower().startswith('src')
-
+def load_reaches_from_shape(shapename,idx_dict,active=False):
+    
+    
     reaches = []
     shp = shapefile.Reader(shapename)
     header = shp.dbfHeader()
@@ -828,9 +1040,9 @@ def load_reaches_from_shape(shapename,idx_dict):
         for i,c in enumerate(conn):
             conn[i] = int(c)
         yr = int(rec[idx_dict['active']])
-        dt = datetime(year=yr,month=1,day=1)
+        dt = datetime(year=yr,month=1,day=1)        
         # def __init__(self,reach,iroute,reachgroup,row,column,length,conn,nconn,active_dt):
-        r = reach(rec[idx_dict['reach']],rec[idx_dict['iroute']],rec[idx_dict['reachgroup']],rec[idx_dict['row']],rec[idx_dict['column']],rec[idx_dict['length']],conn,rec[idx_dict['nconn']],dt)
+        r = reach(rec[idx_dict['reach']],rec[idx_dict['iroute']],rec[idx_dict['reachgroup']],rec[idx_dict['row']],rec[idx_dict['column']],rec[idx_dict['length']],conn,rec[idx_dict['nconn']],dt,ibnd=rec[idx_dict['ibnd']])
         reaches.append(r)
         records.append(rec)
     return reaches,records           
