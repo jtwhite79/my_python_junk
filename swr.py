@@ -73,7 +73,7 @@ def load_ds4b(filename):
 
 
 class ds_3():
-    def __init__(self,solver=2,nouter=50,ninner=100,ibt=10,tols=1.0e-3,tolr=1.0+3,tola=0.1,dampss=1.0,damptr=1.0,iprswr=0,mutswr=0,ipc=4,nlevels=7,droptol=1.0e-3,ibtprt=-1):
+    def __init__(self,solver=1,nouter=50,ninner=100,ibt=10,tols=1.0e-3,tolr=1.0+3,tola=0.1,dampss=1.0,damptr=1.0,iprswr=0,mutswr=0,ipc=4,nlevels=7,droptol=1.0e-3,ibtprt=-1):
         self.solver = int(solver)
         self.nouter = int(nouter)
         self.ninner = int(ninner)
@@ -946,7 +946,7 @@ class ds_5():
     def __init__(self):                                
         self.itmp,self.irdbnd,self.irdrai = 1,1,1
         self.irdevp,self.irdlin,self.irdgeo = 1,1,1
-        self.irdstr,self.irdstg,self.iptflg,self.irdaux = 1,1,1,1
+        self.irdstr,self.irdstg,self.iptflg,self.irdaux = 1,1,0,0
         self.header = '#   ITMP  IRDBND  IRDRAI  IRDEVP  IRDLIN  IRDGEO  IRDSTR  IRDSTG  IPTFLG  IRDAUX\n'
             
     def get_entry(self,sp_num,dt):

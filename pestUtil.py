@@ -291,16 +291,19 @@ class smp():
         #--use the first record as the seed for the dataframe        
         sites = records.keys()
         if sites:
-            r1 = records[sites[0]]        
-            dict = {'date':r1[:,0],sites[0]:r1[:,1]}
-            df = pandas.DataFrame(dict)
-            for site in sites[1:]:
+            dfs = []
+            #r1 = records[sites[0]]        
+            #dict = {'date':r1[:,0],sites[0]:r1[:,1]}
+            #df = pandas.DataFrame(dict)
+            for site in sites:
                 record = records[site]            
                 dict = {'date':record[:,0],site:record[:,1]}
-                df2 = pandas.DataFrame(dict)                
-                df = pandas.merge(df,df2,how='outer',right_on='date',left_on='date')
-            df.index = df['date']
-            df.pop('date')
+                df = pandas.DataFrame({'site':record[:,1].astype(np.float32)},index=record[:,0])                
+                dfs.append(df)
+                #df = pandas.merge(df,df2,how='outer',right_on='date',left_on='date')
+            #df.index = df['date']
+            #df.pop('date')
+            df = pandas.concat(dfs,axis=1)
             return df
         else:
             return pandas.DataFrame()
@@ -1121,7 +1124,29 @@ def load_rmr_results(filename,byRoot=False):
     return results
  
     
-    
+def load_pars_from_rec(rec_filename):
+    reg = re.compile('Current parameter values                 Previous parameter values')
+    f = open(rec_filename,'r')
+    it_pars = []
+    while True:
+        line = f.readline()
+        if line == '':
+            break
+        if reg.match(line.strip()):
+            pn,pv= [],[]
+            while True:
+                line2 = f.readline()
+                raw = line2.strip().split()
+                if line2 == '' or len(raw) != 4:
+                    break
+                pname = raw[0]
+                prev_val = float(raw[1])
+                new_val = float(raw[3])
+                pn.append(panme)
+                pv.append([prev_val,new_val])
+                                   
+    f.close()
+        
 
                
 

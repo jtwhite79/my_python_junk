@@ -56,7 +56,8 @@ class lstbudget():
             line = self.f.readline()
             if line == '':
                 break                   
-            if self.lstkey.match(line.strip()) != None:                
+            #if self.lstkey.match(line.strip()) != None:                
+            if self.lstkey in line:
                 for l in range(self.tssp_lines):
                     line = self.f.readline()
                 try:
@@ -211,7 +212,8 @@ class mfbudget(lstbudget):
         assert os.path.exists(file_name)
         self.file_name = file_name
         self.f = open(file_name,'r')
-        self.lstkey = re.compile(key_string)                        
+        #self.lstkey = re.compile(key_string)                        
+        self.lstkey = key_string
         self.idx_map = []
         self.entries = []
         self.null_entries = []
@@ -228,7 +230,8 @@ class swrbudget(lstbudget):
         assert os.path.exists(file_name)
         self.file_name = file_name
         self.f = open(file_name,'r')
-        self.lstkey = re.compile(key_string)                        
+        #self.lstkey = re.compile(key_string)                        
+        self.lstkey = key_string
         self.idx_map = []
         self.entries = []
         self.null_entries = []
@@ -255,7 +258,8 @@ class lsttime(lstbudget):
         self.tslen = []
         self.sptim = []
         self.totim = []
-        self.lstkey = re.compile(key_str)
+        #self.lstkey = re.compile(key_str)
+        self.lstkey = key_string
         self.tssp_lines = 0
         self.ts_idxs = [42,47]
         self.sp_idxs = [63,69]

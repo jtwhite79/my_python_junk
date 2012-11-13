@@ -34,7 +34,7 @@ def load_shape_list(shape_name):
     shapes = shp.shapes()
     shape_list = []
     for shape in shapes:
-        if shape.shapeType == POLYLINE:            
+        if shape.shapeType == POLYLINE or shape.shapeType == POINT:            
             xs,ys = [],[]
             points = shape.points
             for [x,y] in points:
@@ -42,7 +42,7 @@ def load_shape_list(shape_name):
                 ys.append(y)
             shape_list.append(np.array([xs,ys]))
         else:
-            raise NotImplementedError('only polylines are supported')
+            raise NotImplementedError('only polylines and points are supported')
     return shape_list
 
 
