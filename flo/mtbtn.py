@@ -136,6 +136,6 @@ class mtbtn(package):
         f_btn.write('%10s%10i\n' % (ss, self.nprmas))
         # PERLEN, NSTP, TSMULT
         for t in range(nper):
-            f_btn.write('%10.4f%10d%10f\n' % (mfdis.perlen[t], mfdis.nstp[t], mfdis.tsmult[t]))
+            f_btn.write('%10.4g%10d%10f\n' % (mfdis.perlen[t], mfdis.nstp[t], mfdis.tsmult[t]))
             f_btn.write('%10f%10d%10f%10f\n' % (self.dt0[t], self.mxstrn[t], self.ttsmult[t], self.ttsmax[t]))
         f_btn.close() 

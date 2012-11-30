@@ -3,7 +3,7 @@ import os
 import subprocess as sp
 import webbrowser as wb
 
-def loadtxt(nrow,ncol,file):
+def loadtxt(nrow,ncol,file,dtype='float'):
 	'''
 	read 2darray from file
 	file(str) = path and filename
@@ -16,7 +16,7 @@ def loadtxt(nrow,ncol,file):
 		file_in = file
 		openFlag = False
 	
-	data = np.zeros((nrow*ncol),dtype='double')-1.0E+10
+	data = np.zeros((nrow*ncol),dtype=dtype)-1.0E+10
 	d = 0
 	while True:
 		line = file_in.readline()
@@ -66,12 +66,12 @@ class basemodel(object):
         self.cl_params = ''
     
     def add_package(self, p):                                    
-        for pp in (self.packagelist):
-            if (isinstance(p, type(pp))):
-                print '****Warning -- two packages of the same type: ',type(p),type(pp)                 
-                print 'replacing existing package...'                
-                pp = p
-                return        
+        #for pp in (self.packagelist):
+        #    if (isinstance(p, type(pp))):
+        #        print '****Warning -- two packages of the same type: ',type(p),type(pp)                 
+        #        print 'replacing existing package...'                
+        #        pp = p
+        #        return        
         self.packagelist.append( p )       
     
     def remove_package(self,pname):
@@ -278,6 +278,7 @@ class basemodel(object):
                     #--if an external base name was passed and the parent model object external flag is set
                     if ext_base is not None and self.external:                                            
                         if isMODFLOW:
+                            fmtin = '(FREE)'
                             fname = self.build_array_name(l+1,ext_base)
                             f.write('OPEN/CLOSE '+fname.ljust(30)+' {0:2d} {1:20s} {2:2d} '\
                                     .format(iconst,fmtin,iprn)+description+'\n')                
@@ -297,14 +298,27 @@ class basemodel(object):
                         f.write(self.array2string(aa[:, :, l], fmt_str, abs(npl)))                
                     
                     
-    def write_input(self):       
+    def write_input(self,SelPackList=False):       
         if self.verbose:
             print self # Same as calling self.__repr__()
             print 'Writing packages:'
-        for p in self.packagelist:            
-            p.write_file()
-            if self.verbose:
-                print p.__repr__()        
+        if SelPackList == False:
+            for p in self.packagelist:            
+                p.write_file()
+                if self.verbose:
+                    print p.__repr__()        
+        else:
+#            for i,p in enumerate(self.packagelist):  
+#                for pon in SelPackList:
+            for pon in SelPackList:
+                for i,p in enumerate(self.packagelist):  
+                    if pon in p.name:               
+                        print 'writing package: ',p.name
+                        p.write_file()
+                        if self.verbose:
+                            print p.__repr__()        
+                        break
+        #--write name file
         self.write_name_file()
     
     def write_name_file(self):

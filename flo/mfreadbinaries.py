@@ -22,6 +22,7 @@ class binreader(object):
         self.header_structure = np.dtype([('kstep', self.int_format), ('kper', self.int_format), ('pertim', self.float_format), ('totim', self.float_format), ('text', np.uint8, 16), ('ncol', self.int_format), ('nrow', self.int_format), ('ilay)', self.int_format)])
         self.message = 'records'
         self.nrow, self.ncol, self.nlay, self.nper = self.parent.nrow_ncol_nlay_nper
+        self.silent = self.parent.silent
     def __iter__(self):
         return self
     def next(self):
@@ -61,7 +62,7 @@ class binreader(object):
         dt = []
         m = []
 
-        print ('Please wait. Reading %s from file %s.' % (self.message, filename))
+        if self.silent == 0: print ('Please wait. Reading %s from file %s.' % (self.message, filename))
         self.fp = open(filename, 'rb')
         self.eof = False
         for tds in self:
@@ -71,7 +72,7 @@ class binreader(object):
             m.append(tds[2])
         self.fp.close()
 
-        print str(len(dt)), ' timesteps read.'
+        if self.silent == 0: print str(len(dt)), ' timesteps read.'
         return tt, dt, m
     def read_header(self):
         # Initialize return values
@@ -165,7 +166,7 @@ class mfhdsread(binreader):
 
             times, heads, strings = self.read_all(filename)
 
-            print ('Please wait. Extracting time series.')
+            if self.silent == 0: print ('Please wait. Extracting time series.')
             ht = np.empty((1, len(node_yxz)))
             rr = 0
             for h in heads:

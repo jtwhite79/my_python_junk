@@ -27,10 +27,10 @@ class mfdis(package):
         # First create arrays so that they have the correct size
         self.delr = np.empty( self.ncol )
         self.delc = np.empty( self.nrow )
-        self.laycbd = np.ones( self.nlay, 'int' )
+        self.laycbd = np.zeros( self.nlay, 'int' )
         self.laycbd[-1] = 0 # bottom layer must be zero
         self.top = np.empty((self.nrow, self.ncol))
-        self.botm = np.empty((self.nrow, self.ncol, self.nlay + sum(self.laycbd) ))        
+        self.botm = np.empty((self.nrow, self.ncol, self.nlay + sum(self.laycbd) ))
         self.perlen = np.empty(self.nper)
         self.nstp = np.empty(self.nper, 'int')
         self.tsmult = np.empty(self.nper)
@@ -48,7 +48,7 @@ class mfdis(package):
         self.top = self.assignarray( self.top, top,load=True)
         self.botm = self.assignarray( self.botm, botm,load=True)
         if (not self.checklayerthickness()):
-            print 'Warning: Cells with zero-layer thickness encountered!'
+            if self.parent.silent == 0: print 'Warning: Cells with zero-layer thickness encountered!'
         self.assignarray( self.perlen, perlen )
         self.assignarray( self.nstp, nstp )
         self.assignarray( self.tsmult, tsmult )
@@ -179,9 +179,9 @@ class mfdis(package):
         # Item 4: DELC
         self.parent.write_array(f_dis, self.delc, self.unit_number[0], True, 13, 5, 'DELC(NROW)')
         # Item 5: Top(NCOL, NROW)
-        self.parent.write_array(f_dis, self.top, self.unit_number[0], True, 13, 5, 'TOP OF SYSTEM',ext_base='top')
+        self.parent.write_array(f_dis, self.top, self.unit_number[0], True, 13, self.ncol, 'TOP OF SYSTEM',ext_base='top')
         # Item 5: BOTM(NCOL, NROW)
-        self.parent.write_array(f_dis, self.botm, self.unit_number[0], True, 13, 5, 'BOTTOM OF LAYER',ext_base='botm')
+        self.parent.write_array(f_dis, self.botm, self.unit_number[0], True, 13, self.ncol, 'BOTTOM OF LAYER',ext_base='botm')
         # Item 6: NPER, NSTP, TSMULT, Ss/tr
         for t in range(self.nper):
             f_dis.write('%14f%14d%10f' % (self.perlen[t], self.nstp[t], self.tsmult[t]))
@@ -190,5 +190,5 @@ class mfdis(package):
             else:
                 f_dis.write('%3s\n' % 'TR')
         f_dis.close()
-    
-                
+
+
