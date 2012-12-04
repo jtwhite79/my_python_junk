@@ -1,0 +1,582 @@
+import re
+import math
+import sys
+import copy
+import shapefile
+import mikeshe_util as msu
+
+def get_str_culvert(file):
+    str = re.compile('\[control_str_data\]',re.IGNORECASE)
+    culvert = re.compile('\[culvert_data\]',re.IGNORECASE)
+    f = open(file,'r')
+    loc_line = []
+     
+    while True:
+        line = f.readline()
+        if line == '':
+            break
+        if str.search(line) != None or culvert.search(line) != None:
+            this_loc_line = f.readline()
+            raw = this_loc_line.strip().split(',')
+            this_loc_line = [raw[0].split('=')[-1].strip()[1:-1]]
+            this_loc_line.append(float(raw[1]))
+            this_loc_line.append(raw[2].strip()[1:-1])
+            this_loc_line.extend(raw[3:])
+            loc_line.append(this_loc_line)
+    f.close()
+    return loc_line
+
+
+def get_points(file):
+    m_2_ft = 3.281
+    pt1 = re.compile('\[POINTS\]',re.IGNORECASE)
+    pt2 = re.compile('point')
+    pt3 = re.compile('EndSect  // POINTS',re.IGNORECASE)
+    point_x,point_y,point_number = [],[],[]
+    point_chainage = []
+    f = open(file,'r')
+    while True:
+        line = f.readline()
+        if pt1.search(line) != None:
+            while True:
+                line = f.readline()
+                if pt3.search(line) != None:
+                    return point_x,point_y,point_number,point_chainage
+                raw = line.strip().split(',')
+                point_x.append(float(raw[1])*m_2_ft)
+                point_y.append(float(raw[2])*m_2_ft)
+                this_name = int(raw[0].split('=')[-1].strip())
+                this_chainage = float(raw[4])
+                point_number.append(this_name)
+                point_chainage.append(this_chainage)
+                
+#names,topo_id,st_chain,end_chain,bpoints,conn_name,conn_chain
+def get_branches(file):
+    br = re.compile('\[BRANCHES\]',re.IGNORECASE)
+    br1 = re.compile('\[branch\]',re.IGNORECASE)
+    br2 = re.compile('EndSect  // BRANCHES',re.IGNORECASE)
+    stor = re.compile('storage',re.IGNORECASE)
+    name_list,st_chain_list,end_chain_list,points_list = [],[],[],[]
+    conn_name_list,conn_chain_list,topo_id_list = [],[],[]
+    f = open(file,'r')
+    while True:
+        line = f.readline()
+        if br2.search(line) != None:
+           f.close()
+           return name_list,topo_id_list,st_chain_list,end_chain_list,\
+                  points_list,conn_name_list,conn_chain_list
+        if br1.search(line) != None:
+            definitions = f.readline()
+            #--parse the definitions line into variables
+            name,topo_id,st_chain,end_chain,dir = parse_def_line(definitions)
+            connections = f.readline()
+            #--parse the connections line
+            conn_name,conn_chain = parse_conn_line(connections)
+            points = f.readline()
+            #--parse the points line
+            points = parse_points(points,dir)
+            if stor.search(name) == None:
+                name_list.append(name)
+                st_chain_list.append(st_chain)
+                end_chain_list.append(end_chain)
+                points_list.append(points) 
+                conn_name_list.append(conn_name)
+                conn_chain_list.append(conn_chain)
+                topo_id_list.append(topo_id)
+
+def get_xsec(file):
+    f = open(file,'r')    
+    xsec_list = []
+    
+    this_id = f.readline().strip().split()[0]
+    this_name = f.readline().strip().split()[0]    
+    this_chain = float(f.readline().strip())
+    this_entries = int(read_to(f,'PROFILE').strip().split()[-1])
+    this_xz = []
+    for e in range(this_entries):
+        raw = f.readline().strip().split()
+        this_x = float(raw[0])
+        this_z = float(raw[1])
+        this_xz.append([this_x,this_z])
+    this_list = [this_name,this_id,this_chain,this_xz]
+    xsec_list.append(this_list)
+    
+    while True:
+        line = read_to(f,'\*\*\*')          
+        try:
+            this_id = f.readline().strip()
+        except: 
+            break 
+        if this_id == '':
+            break          
+        #this_id = re.sub('\?','_',this_id)        
+        #this_id = re.sub(' ','_',this_id)     
+        #this_id = re.sub('\.','_',this_id)    
+        
+        this_name = f.readline().strip()
+        #this_name = re.sub('\?','_',this_name)        
+        #this_name = re.sub(' ','_',this_name)         
+        #this_name = re.sub('\.','_',this_name)        
+        
+        line = f.readline().strip() 
+        #print this_id,this_name,line        
+        this_chain = float(line)
+        #try:
+        line = read_to(f,'PROFILE',pos=0).strip().split()
+        #print this_name,this_id,this_chain,line
+        try:
+            this_entries = int(line[-1])
+        except:
+            this_entries = 0
+       # print this_name,this_id,this_chain,this_entries,line    
+        this_xz = []
+        this_list = []
+        for e in range(this_entries):
+            raw = f.readline().strip().split()
+            this_x = float(raw[0])
+            this_z = float(raw[1])
+            this_xz.append([this_x,this_z])
+        
+        this_list = [this_name,this_id,this_chain,this_xz]
+        #print this_list[0],this_list[1],this_list[2]
+        xsec_list.append(this_list)
+        #except:
+        #    #print line
+        #    pass
+    
+    f.close()
+    return xsec_list
+        
+        
+def read_to(file,tag,pos=None):
+    reg = re.compile(tag,re.IGNORECASE)
+    while True:
+        line = file.readline()
+        if line == '':  
+            return False
+        if pos != None:
+            raw = line.strip().split()
+            try:
+                if reg.search(raw[pos]) != None:
+                    return line
+            except:
+                pass
+        
+        
+        elif reg.search(line) != None:
+            return line
+                 
+
+def parse_conn_line(line):
+    raw = line.strip().split('=')[-1].split(',') 
+    st_name = raw[0].strip()[1:-1]
+    end_name = raw[2].strip()[1:-1]
+    st_ch = float(raw[1])
+    end_ch = float(raw[3])
+    if st_name == '' and end_name == '':
+        return [],[]
+    elif st_name == '':
+        return [end_name],[end_ch]        
+    elif end_name == '':
+        return [st_name],[st_ch]        
+    else:
+        return [st_name,end_name],[st_ch,end_ch]
+
+                  
+def parse_def_line(def_line):
+    raw = def_line.strip().split(',')
+    name = raw[0].split('=')[-1].strip()[1:-1]
+    topo_id = raw[1].strip()[1:-1]
+    st_chain = float(raw[2])   
+    end_chain = float(raw[3])   
+    dir = False
+    if int(raw[4]) == 0: dir = True
+    return name,topo_id,st_chain,end_chain,dir
+
+
+def parse_points(points,dir):
+    raw = points.strip().split(',')
+    point_list = [int(raw[0].split('=')[-1])]
+    for r in raw[1:]: point_list.append(int(r))
+    
+    if dir == False: 
+        point_list.reverse()
+    return point_list
+
+
+def get_point_xy_len(p,point_attri):
+    for pt in point_attri:        
+        if pt[0] == p: return pt[1],pt[2],pt[4]
+    print 'bpoint not found in point_attri list: ',p
+    sys.exit()
+
+
+
+def get_branch_points(point_attri,bpoints):
+    #--get the points and chainage lengths associated with each branch
+    branch_points = []
+    branch_lengths = []
+    for bp in bpoints:
+        this_branch_points = []
+        this_branch_lengths = []
+        for p in bp:
+            #--get the x, y, and chainage length of 
+            this_x,this_y,this_len = get_point_xy_len(p,point_attri)
+            #print p,this_x,this_y
+            this_branch_points.append([this_x,this_y])
+            this_branch_lengths.append(this_len)
+        branch_points.append(this_branch_points)
+        branch_lengths.append(this_branch_lengths)
+    return branch_points,branch_lengths
+
+
+def point_compare(point1,point2):
+    if point1[0] == point2[0] and point1[1] == point2[1]:
+        return True
+    else: return False
+
+            
+def interp_conn_point(frac_dist,point1,point2):
+    dist = distance(point1,point2)    
+    delta_x = frac_dist * (point2[0] - point1[0])
+    delta_y = frac_dist * (point2[1] - point1[1])
+    #print 'delta_x,delta_y',delta_x,delta_y
+    #print 'dist, frac_dist',dist,frac_dist
+    return [point[0] + delta_x,point1[1] + delta_y]    
+    
+                           
+def distance(point1,point2):
+    return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
+
+            
+def get_nearest_2_point_indexes(chainage,branch_lengths):
+    #print branch_lengths    
+    #--try for an exact equality
+    for i in range(1,len(branch_lengths)):        
+        if chainage >= branch_lengths[i-1] and chainage <= branch_lengths[i]:
+            #print 'chainage points',chainage,branch_lengths[i-1],branch_lengths[i]
+            return [i-1,i]
+    #--try with rounding error
+    tol_dist = 0.1 #meters
+    for i in range(1,len(branch_lengths)):        
+        if chainage >= branch_lengths[i-1]-tol_dist and chainage <= branch_lengths[i]+tol_dist:
+            #print 'chainage points',chainage,branch_lengths[i-1],branch_lengths[i]
+            return [i-1,i]
+        
+    return [None]
+                
+
+def get_branch_index_by_name(name,names):    
+    for n in range(len(names)):
+        #print names[n],name
+        if names[n] == name:
+            idx = n
+            return idx 
+    return None
+
+
+def get_point(name,name_list,chainage,chainage_list,point_list):
+    #--get the index of the connection branch
+    branch_idx = get_branch_index_by_name(name,name_list) 
+    
+    if branch_idx != None:
+        #print names[i],conn_chain[i][c],names[branch_idx]
+        #print name,chainage,branch_idx
+        
+        #--get the chainage index of the two nearest points in the connection branch        
+        ch_idx = get_nearest_2_point_indexes(chainage,chainage_list[branch_idx])
+        if ch_idx[0] == None:
+            print 'unable to find chainage points for point: ',name,chainage
+            #raise IndexError 
+            return None,None,None 
+        #print ch_idx,len(branch_points[branch_idx]),len(branch_lengths[branch_idx])
+        
+        #--calc the fraction distance along the branch for the connection  
+        numer = (chainage - chainage_list[branch_idx][ch_idx[0]])
+        demon = (chainage_list[branch_idx][ch_idx[1]] - chainage_list[branch_idx][ch_idx[0]])
+        #print branch_lengths[branch_idx][ch_idx[1]], branch_lengths[branch_idx][ch_idx[0]] 
+        try:
+            frac_dist = numer / demon
+        except:
+            frac_dist = 0.0
+        
+        #--get the new connection point using the chainage lengths and the two nearest points
+        point = interp_conn_point(frac_dist,\
+                         point_list[branch_idx][ch_idx[0]],\
+                         point_list[branch_idx][ch_idx[1]])        
+        #print 'frac_dist,ch_idx,point',frac_dist,ch_idx,point
+        #print '  ',point
+        return point,branch_idx,ch_idx
+    else: return None,None,None
+
+
+def get_xsec_points(xsec_attri,names,branch_points,branch_lengths):    
+    xsec_points = []
+    xsec_idx = []
+    for i in range(len(xsec_attri)):        
+        xsec_point,b_idx,c_idx = get_point(xsec_attri[i][0],names,xsec_attri[i][2],\
+                              branch_lengths,branch_points)
+        if xsec_point != None:        
+            xsec_points.append(xsec_point)            
+            xsec_idx.append(i)
+    return xsec_idx,xsec_points
+
+
+def set_xsec_breaks(names,xsec_attri,branch_points,branch_lengths,chain_breaks):
+    branch_points_break = []
+    branch_lengths_break = []
+    
+    for i in range(len(names)):
+        branch_points_break.append(copy.deepcopy(branch_points[i]))
+        branch_lengths_break.append(copy.deepcopy(branch_lengths[i]))
+    
+    for i in range(len(xsec_attri)):        
+        #print xsec_attri[i][0],xsec_attri[i][2]
+        xsec_point,branch_idx,ch_idx = get_point(xsec_attri[i][0],names,xsec_attri[i][2],\
+                                                branch_lengths_break,branch_points_break)      
+        
+        if branch_idx != None:
+            #print xsec_point
+            branch_points_break[branch_idx].insert(ch_idx[1],xsec_point)
+            branch_lengths_break[branch_idx].insert(ch_idx[1],xsec_attri[i][2])
+            chain_breaks[branch_idx].append(xsec_attri[i][2])
+    return branch_points_break,branch_lengths_break,chain_breaks
+
+
+    
+                      
+def set_conn_points(names,st_chain,end_chain,bpoints,conn_name,conn_chain,branch_points,branch_lengths):   
+    branch_points_conn = [] 
+    branch_lengths_conn = []
+    conn_point_list = []
+    conn_name_list = []
+    ch_idx_list = []
+    #--for each branch
+    for i in range(len(names)):
+        branch_points_conn.append(copy.deepcopy(branch_points[i]))       
+        branch_lengths_conn.append(copy.deepcopy(branch_lengths[i]))       
+        #-- for each connection
+        for c in range(len(conn_name[i])):            
+            
+            conn_point,branch_idx,ch_idx = get_point(conn_name[i][c],names,conn_chain[i][c],\
+                                                     branch_lengths,branch_points)                                 
+            if conn_point != None:
+                start_dist = distance(conn_point,branch_points[i][0])
+                end_dist = distance(conn_point,branch_points[i][-1])
+                
+                if start_dist < end_dist:
+                    branch_points_conn[i].insert(0,conn_point)
+                    branch_lengths_conn[i].insert(0,branch_lengths[i][0]-start_dist)
+                else:
+                    branch_points_conn[i].append(conn_point)
+                    branch_lengths_conn[i].append(branch_lengths[i][-1]+end_dist)                
+        #if names[i] == 'SBDD_SB8-7':break                                     
+    return branch_points_conn,branch_lengths_conn
+
+
+def set_conn_breaks(names,conn_name,conn_chain,branch_points,branch_lengths,chain_breaks):
+    branch_points_break = []
+    branch_lengths_break = []
+    for i in range(len(names)):
+        branch_points_break.append(copy.deepcopy(branch_points[i]))
+        branch_lengths_break.append(copy.deepcopy(branch_lengths[i]))
+        
+    for i in range(len(names)):
+    
+        #-- for each connection
+        for c in range(len(conn_name[i])):
+            
+            conn_point,branch_idx,ch_idx = get_point(conn_name[i][c],names,conn_chain[i][c],\
+                                                     branch_lengths_break,branch_points_break)            
+            if branch_idx != None:                
+                branch_points_break[branch_idx].insert(ch_idx[1],conn_point)
+                branch_lengths_break[branch_idx].insert(ch_idx[1],conn_chain[i][c])
+                chain_breaks[branch_idx].append(conn_chain[i][c])
+        #        print names[i],conn_name[i],branch_lengths_break[branch_idx][ch_idx[1]],chain_breaks[branch_idx]
+        #if names[i].upper() ==  '2_WCD2_C3MID':
+        #    sys.exit() 
+    return branch_points_break,branch_lengths_break,chain_breaks  
+                
+
+def set_str_cul_points(str_cul_attri,names,branch_points,branch_lengths):
+    
+    str_cul_points = []
+    str_cul_idx = []
+    for i in range(len(str_cul_attri)):
+        
+        str_point = get_point(str_cul_attri[i][0],names,str_cul_attri[i][1],\
+                              branch_lengths,branch_points)
+        if str_point != None:        
+            str_cul_points.append(str_point)            
+            str_cul_idx.append(i)
+    return str_cul_idx,str_cul_points
+
+
+
+def set_str_breaks(names,str_cul_attri,branch_points,branch_lengths,chain_breaks):
+    branch_points_break = []
+    branch_lengths_break = []
+    
+    for i in range(len(names)):
+        branch_points_break.append(copy.deepcopy(branch_points[i]))
+        branch_lengths_break.append(copy.deepcopy(branch_lengths[i]))
+                        
+    for i in range(len(str_cul_attri)):
+        
+        str_point,branch_idx,ch_idx = get_point(str_cul_attri[i][0],names,str_cul_attri[i][1],\
+                                                branch_lengths_break,branch_points_break)        
+        if branch_idx != None:
+            #print 'new_point,branch_points',str_point,branch_points_break[branch_idx][ch_idx[0]],branch_points_break[branch_idx][ch_idx[1]]
+            branch_points_break[branch_idx].insert(ch_idx[1],str_point)
+            branch_lengths_break[branch_idx].insert(ch_idx[1],str_cul_attri[i][1])
+            chain_breaks[branch_idx].append(str_cul_attri[i][1])
+            #print branch_points_break[branch_idx][ch_idx[0]],branch_points_break[branch_idx][ch_idx[1]]
+        
+        #if str_cul_attri[i][2] == 'S-38A': break  
+    return branch_points_break,branch_lengths_break,chain_breaks  
+
+
+def get_break_idx(branch_lengths,chain_breaks,tol=1.0):
+    idx = [0]
+    chain_breaks.sort()
+    for c in chain_breaks:
+        #print c
+        branch_length_idx = branch_lengths.index(c)
+        if check_tolerance(c,branch_lengths,idx,tol):
+            idx.append(branch_lengths.index(c))
+    if check_tolerance(branch_lengths[-1],branch_lengths,idx,tol):
+        idx.append(len(branch_lengths)-1)
+    else: 
+        idx.pop(-1)
+        idx.append(len(branch_lengths)-1)
+    idx.sort()
+    return idx
+        
+
+def check_tolerance(chain,chainage,ch_idx,tolerance):
+    for cidx in ch_idx:
+        if abs(chainage[cidx]-chain) < tolerance:
+            return False
+    return True    
+
+
+def list_2_string(l,delimiter=' '):
+    st = ''
+    for i in l:  
+        st = st + ' ' + str(i)
+    return st
+
+
+def m_2_ft(branch_points):
+    
+    for bp in branch_points:        
+        for p in bp:        
+            p[0] *= 3.281
+            p[1] *= 3.281
+    return branch_points
+
+
+def get_bbox(branch_point):
+    xmin,ymin = 1.0e20,1.0e20
+    xmax,ymax = -1.0e20,-1.0e20
+    for bpoints in branch_points:
+        for p in bpoints:
+            print p[0]
+            if p[0] < xmin : xmin = p[0]
+            if p[0] > xmax : xmax = p[0]
+            if p[1] < ymin : ymin = p[1]
+            if p[1] > ymax : ymax = p[1]
+    return [xmin,ymin,xmax,ymax]
+
+
+def top_width(profile):
+    return abs(profile[0][0] - profile[-1][0])
+
+    
+def bot_elev(profile):
+    min = 1.0e+20
+    for p in profile:
+        if p[1] < min:
+            min = p[1]
+    return min
+
+
+
+
+    
+############################################
+#--Main
+############################################
+
+#--get the points from the nwk11 file
+file = 'Broward_Base_05.nwk11'
+point_x,point_y,point_number,point_chainage = get_points(file)
+
+#--get branches
+names,topo_id,st_chain,end_chain,bpoints,conn_name,conn_chain = get_branches(file)
+
+#--get the name, topo_id and chainage of each point from the branch info
+#[[x],[y],[number],[name],[topo_id],[chainage]]
+point_info = [[],[],[],[],[],[]]
+
+for n,t,p in zip(names,topo_id,bpoints):
+    
+    for pp in p: 
+        #print n,t,pp
+        idx = point_number.index(pp)
+        x,y = point_x[idx],point_y[idx]
+        ch = point_chainage[idx]
+        pt = point_number[idx]
+        #print n,t,pp,x,y,ch
+        point_info[0].append(x)
+        point_info[1].append(y)
+        point_info[2].append(pt)
+        point_info[3].append(n)
+        point_info[4].append(t)
+        point_info[5].append(ch)
+        #break
+    #break
+
+
+#--get xsections
+xsec_file = 'raw_xsec.txt'
+xsec_attri = get_xsec(xsec_file)
+#print xsec_attri[0]
+#sys.exit()
+for x in xsec_attri:
+    if len(x[3]) > 0:
+        name = x[0]+'_'+x[1]+'_'+str(int(x[2]))
+        #print name
+        name1 = re.sub('\?','_',name)
+        name1 = re.sub('/','_',name1)
+        name1 = re.sub('\.','_',name1)
+        name1 = re.sub('\s','_',name1)
+        
+       
+        
+        #--find the matching point
+        pt_x,pt_y = None,None
+        for n,t,ch in zip(point_info[3],point_info[4],point_info[5]):
+            dist = abs(x[2] - ch)
+            
+            if n == x[0] and t == x[1] and \
+                dist < 1.0:
+                    idx = point_info[3].index(n)
+                    pt_x = point_info[0][idx]
+                    pt_y = point_info[1][idx]
+        
+        
+        if pt_x == None :
+            print 'X,Y not found for section: ',x[0],x[1],x[2]
+            #print x
+            #break
+        else:
+            f = open('xsec\\'+name1+'.dat','w')
+            f.write('#       XB      ELEVB     '+str(len(x[3]))+\
+                    '    {0:10.3e} {1:10.3e}\n'.format(pt_x,pt_y))
+            for pt in x[3]:
+                x = pt[0] * 3.281
+                z = pt[1] * 3.281
+                f.write('{0:10.3e} {1:10.3e}\n'.format(x,z))
+            f.close()
+        #break

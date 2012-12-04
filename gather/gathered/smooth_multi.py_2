@@ -1,0 +1,54 @@
+import gc
+import matplotlib
+import numpy as np
+import pylab
+
+import arrayUtil as au
+import gslibUtil as gu
+
+filter = np.array([[1,4,7,4,1],[4,16,26,16,4],[7,26,41,26,7],[4,16,26,16,4],[1,4,7,4,1]])
+#print np.shape(filter),np.cumsum(filter) 
+min_elev,max_elev = -1000000.0,20.0
+nrow,ncol = 411,501
+iterations = 20
+
+print 'loading top array...'
+top = np.loadtxt('ref\\top.ref')
+top[np.where(top>max_elev)] = max_elev 
+top[np.where(top<min_elev)] = min_elev 
+#print top 
+org_top = top
+
+new_top = np.zeros_like(top)
+xi,yi = 2,2
+
+print 'beginning smoothing iterations...'
+for iter in range(0,iterations):
+    
+    print iter
+    while xi < ncol-3:
+        while yi < nrow-3:
+            temp = top[yi-2:yi+3,xi-2:xi+3].copy() 
+    #        print xi,yi,np.shape(temp),np.shape(top)
+            total = filter*temp
+    #        print np.cumsum(total)[-1],np.cumsum(filter)[-1]
+            new_top[yi,xi] = np.cumsum(total)[-1]/np.cumsum(filter)[-1]
+            yi += 1
+        xi += 1
+        yi = 2
+    
+    np.savetxt('ref\\filter_'+str(iter+1)+'raw.ref',new_top)
+        
+    new_top[:,:3] = new_top[:,4:7]
+    new_top[:,-3:] = new_top[:,-7:-4]
+    
+    new_top[:3,:] = new_top[4:7,:]
+    new_top[-3:,:] = new_top[-7:-4,:]
+    
+    np.savetxt('ref\\filter_'+str(iter+1)+'_edge.ref',new_top)
+    #au.plotArray(new_top,500,500,output='filter_'+str(iter+1)+'_edge.png')
+        
+    top = new_top.copy() 
+    new_top = np.zeros_like(top)
+    xi,yi = 2,2
+    gc.collect()

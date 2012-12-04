@@ -1,0 +1,30 @@
+import sys
+import calendar
+import numpy as np
+from numpy import ma
+import pylab
+import MFBinaryClass as mfb
+import shapefile
+import arrayUtil as au
+
+
+nrow,ncol,nlay = 411,501,6
+delr,delc = 500,500
+offset = [728600.0,577350.0,0.0]
+results = 'results\\'
+nreach = 2400
+
+    
+hds_handle = mfb.MODFLOW_Head(nlay,nrow,ncol,results+'bro_6lay.hds')
+totim,kstp,kper,h,success = hds_handle.get_record()
+for l in range(nlay):
+    this_lay = h[l,:,:]
+    active = this_lay[np.where(this_lay > -20.0)]
+    mean = np.mean(active) 
+    print mean 
+    this_lay[np.where(this_lay < 20.0)] = mean       
+    np.savetxt('init_heads_'+str(l+1)+'.ref',this_lay,fmt='%15.6e')
+    
+
+
+

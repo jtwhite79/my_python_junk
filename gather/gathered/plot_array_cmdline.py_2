@@ -1,0 +1,12 @@
+import sys
+import numpy as np
+import arrayUtil as au
+
+
+array = np.loadtxt(sys.argv[1])
+try:
+    array = np.ma.masked_where(array<float(sys.argv[2]),array)
+except:
+    pass
+au.plotArray(array,500,500)
+np.savetxt(sys.argv[1],array,fmt='%15.6e')

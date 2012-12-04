@@ -1,0 +1,30 @@
+import os,sys,pylab
+import numpy as np
+import gslibUtil as gu
+
+
+import arrayUtil as au
+import numpy as np
+import pylab
+
+#--load hard data
+harddata_file = '..\\tbl29_pro.dat'
+title,harddata_names,harddata = gu.loadGslibFile(harddata_file)
+#print np.shape(harddata)
+
+nrow,ncol = 301,501		
+delr,delc = 500,500
+offset = [728600.,577350.]
+
+#top = au.loadArrayFromFile(nrow,ncol,'model_top.ref')
+q1 = au.loadArrayFromFile(nrow,ncol,'Layer_thk\\Q1_resample_500_500.ref')
+q2 = au.loadArrayFromFile(nrow,ncol,'Layer_thk\\Q2_resample_500_500.ref')
+q3 = au.loadArrayFromFile(nrow,ncol,'Layer_thk\\Q3_resample_500_500.ref')
+bis_thk = q1+q2+q3
+
+au.plotArray(bis_thk,delr,delc,offset=offset)
+    
+
+
+
+

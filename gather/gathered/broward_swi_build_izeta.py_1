@@ -1,0 +1,29 @@
+import numpy as np
+import shapefile
+import pylab
+import bro
+
+
+
+#--write the izeta arrays
+
+#--load avg water levels - written by process_hds.py
+avg_wl = np.loadtxt('initial_avg_wl.ref')
+avg_wl = np.ma.masked_where(avg_wl==0,avg_wl)
+
+avg_sl = -1.5
+avg_wl -= avg_sl 
+
+#--gyb-htz depths - 40.0 to salt, 35 to brackish
+gh_depth_mult = [40.0,35.0]
+
+odir = 'ref\\'
+for i,gd in enumerate(gh_depth_mult):
+    idepth = -1.0 * (avg_wl * gd)
+    idepth[np.where(idepth>-gd)] = -gd   
+    np.savetxt(odir+'izeta_'+str(i+1)+'.ref',idepth,fmt=' %15.6E')
+
+
+
+
+

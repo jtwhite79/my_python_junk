@@ -11,15 +11,12 @@ def kij_from_icrl(icrl,nlay,nrow,ncol):
     #k=int( icrl / nrow / ncol )+1
     #i=int( (icrl-(k-1)*nrow*ncol) / ncol )+1
     #j=icrl - (k-1)*nrow*ncol - (i-1)*ncol
-    k  = int( icrl / nrc )
-    if ( k * nrc ) < icrl:
-        k += 1
+    k  = int( icrl / nrc ) + 1
     ij = int( icrl - ( k - 1 ) * nrc )
-    i  = int( ij / ncol )
+    i = int( ij / ncol )
     if ( i * ncol ) < ij:
         i += 1
     j = ij - ( i - 1 ) * ncol
-    #print k, i, j
     return k,i,j
 
 def icrl_from_kij(k,i,j,nlay,nrow,ncol):
@@ -72,9 +69,6 @@ class SWRReadBinaryStatements:
     def read_items(self):
         x = numpy.fromfile(file=self.file,dtype=SWRReadBinaryStatements.real,count=self.items)
         return x
-    def read_1dintegerarray(self):
-        i = numpy.fromfile(file=self.file,dtype=SWRReadBinaryStatements.integer,count=self.nrecord)
-        return i
 
 
 class MFReadBinaryStatements:
@@ -178,10 +172,10 @@ class MF_Discretization:
 
 class SWR_Record(SWRReadBinaryStatements):
     def __init__(self,type,filename):
-        #--type =  0 = stage record
+        #--type = 0 = stage record
         #--type = -1 = reach group record
         #--type = -2 = reach group connection velocity record
-        #--type >  0 = aq-reach exchange record type = nlay
+        #-- type > 0 = aq-reach exchange record type = nlay
         self.file = open(filename,'rb')
 #        self.nrecord = self.read_integer()
         self.type = int(type)
@@ -191,13 +185,12 @@ class SWR_Record(SWRReadBinaryStatements):
             self.nrgout = self.read_integer()
         self.nrecord = self.read_integer()
         self.items = self.get_num_items()
+        #print self.nrecord,self.items
         self.null_record = numpy.zeros((self.nrecord,self.items)) + 1.0E+32
         #read connectivity for velocity data if necessary
         if self.type == -2:
             self.connectivity = self.read_connectivity()
             #print self.connectivity
-        if self.type > 0:
-            self.reachlayers = numpy.zeros( (self.nrecord), numpy.int )
     
     def read_connectivity(self):
         conn = numpy.zeros( (self.nrecord,3), numpy.int )
@@ -254,25 +247,7 @@ class SWR_Record(SWRReadBinaryStatements):
                 print 'no match to: ', value.lower()
         return i
 
-    def return_gage_item_from_list(self,r,citem,scale=1.0):
-        ipos = self.get_item_number(citem)
-        n = r.shape[0]
-        if n < 1:
-            return self.null_record
-        v = numpy.zeros( (n), numpy.float )
-        for i  in range(0,n):
-            v[i]  = r[i,ipos] * scale
-        return v
-        
     def read_header(self):
-        if self.type > 0:
-            try:
-                #self.reachlayers = self.read_1dintegerarray()
-                for i in range(0,self.nrecord):
-                    self.reachlayers[i] = self.read_integer() 
-            except:
-                #print 'could not read reachlayers'
-                return 0.0,0.0,0,0,0,False
         try: 
             totim = self.read_real()
             dt = self.read_real()
@@ -370,10 +345,9 @@ class SWR_Record(SWRReadBinaryStatements):
         else:
             if self.type > 0:
                 #r = numpy.zeros((self.items+1)) 
-                r = numpy.zeros((self.items+2)) 
+                r = numpy.zeros((self.items+2))                
                 for rec in range(0,self.nrecord):
-                    #nlay = self.read_integer()
-                    nlay = self.reachlayers[rec]
+                    nlay = self.read_integer()                    
                     for lay in range(0,nlay):
                         this_lay = self.read_integer()
                         this_items = self.read_items()
@@ -405,15 +379,10 @@ class MODFLOW_Head(MFReadBinaryStatements,MF_Discretization):
         self.dy = 0.0
         #open binary head file
         self.file=open(filename,'rb')
-        #get times
-        self.times = self.time_list()
 
-    def get_time_list(self):
-        return self.times
-        
     def get_num_items(self):
         return 1 #heads
-    
+
     def set_coordinates(self,x0,y0,dx,dy):
         self.x0 = x0
         self.y0 = y0
@@ -497,7 +466,7 @@ class MODFLOW_Head(MFReadBinaryStatements,MF_Discretization):
                 assert ilay==k+1, 'Layers in head file are not sequential'
                 self.h[ilay - 1, :, :] = self.read_layerheads()
             else:
-                print 'MODFLOW_Head object.next() reached end of file.'
+                #print 'MODFLOW_Head object.next() reached end of file.'
                 return 0.,0,0, numpy.zeros((self.nlay, self.nrow, self.ncol),\
                 dtype='float')+1.0E+32,False
         self.KSTP=kstp
@@ -520,7 +489,7 @@ class MODFLOW_Head(MFReadBinaryStatements,MF_Discretization):
                 else:
                     return 0.0,0,0,numpy.zeros((self.nlay,self.nrow,self,ncol),dtype='float')+1.0E+32,False 
         except:
-            try:	
+            try:        
                 target_totim = float(args[0])
                 while True:
                     totim,kstp,kper,h,success = self.next()
@@ -529,7 +498,7 @@ class MODFLOW_Head(MFReadBinaryStatements,MF_Discretization):
                             return totim,kstp,kper,h,True
                     else:
                         return 0.0,0,0,numpy.zeros((self.nlay,self.nrow,self.ncol),dtype='float')+1.0E+32,False
-        	
+                
             except:
                 #--get the last successful record
                 previous = self.next()
@@ -538,7 +507,7 @@ class MODFLOW_Head(MFReadBinaryStatements,MF_Discretization):
                     if this_record[-1] == False:
                         return previous
                     else: previous = this_record
-        	    				
+                                                
     #rec_num is modflow node number
     def get_gage(self,rec_num):    
         k, i, j = kij_from_icrl(rec_num,self.nlay,self.nrow,self.ncol)
@@ -555,35 +524,6 @@ class MODFLOW_Head(MFReadBinaryStatements,MF_Discretization):
                 gage_record = numpy.delete(gage_record,0,axis=0) #delete the first 'zeros' element
                 return gage_record
 
-    def rewind_file(self):    
-        self.file.seek(0)
-        return True
-        
-    def time_list(self):    
-        self.file.seek(0)
-#        current_position = self.file.tell()
-        times = []
-        while True:
-            current_position = self.file.tell()
-            totim,kstp,kper,h,success = self.next()
-            if success == True:
-                #this_time = [totim,kstp,kper,current_position]
-                times.append([totim,kstp,kper,current_position])
-#                current_position = self.file.tell()
-            else: 
-                self.file.seek(0)
-                times = numpy.array( times )
-                return times
-
-    def get_array(self,iposition):
-        self.file.seek(iposition)
-        totim,kstp,kper,h,success = self.next()
-        if success == True:
-            #print totim,kstp,kper,True
-            return totim,kstp,kper,h,True
-        else:
-            return 0.0,0,0,numpy.zeros((self.nlay,self.nrow,self,ncol),dtype='float')+1.0E+32,False 
-
 
 class MODFLOW_CBB(MFReadBinaryStatements,MF_Discretization):
     'Reads binary cell by cell output from MODFLOW cbb file'
@@ -594,10 +534,6 @@ class MODFLOW_CBB(MFReadBinaryStatements,MF_Discretization):
         #open binary head file
         self.file=open(filename,'rb')
  
-    def get_time_list(self,fluxtype):
-        self.times = self.time_list(fluxtype)
-        return self.times
-
     def read_header(self):
         try:
             kstp=self.read_integer()
@@ -613,7 +549,7 @@ class MODFLOW_CBB(MFReadBinaryStatements,MF_Discretization):
                 delt = self.read_real()
                 pertim = self.read_real()
                 totim = self.read_real()
-            #print kstp,kper,text,nlay,nrow,ncol,ubdsvtype,delt,pertim,totim,True
+           # print kstp,kper,text,nlay,nrow,ncol,ubdsvtype,delt,pertim,totim,True
             return kstp,kper,text,nlay,nrow,ncol,ubdsvtype,delt,pertim,totim,True
         except:
 #            return kstp,kper,text,nlay,nrow,ncol,ubdsvtype,delt,pertim,totim,False
@@ -656,7 +592,7 @@ class MODFLOW_CBB(MFReadBinaryStatements,MF_Discretization):
             self.read_cbbdata(nlay,nrow,ncol,ubdsvtype,text)
             return text,totim,kstp,kper,True
         else:
-            print 'MODFLOW_CBB object.read_next_cbb() reached end of file.'
+            #print 'MODFLOW_CBB object.read_next_cbb() reached end of file.'
             return '',0.0,0,0,False
 
     def read_next_fluxtype(self,fluxtype):
@@ -665,35 +601,28 @@ class MODFLOW_CBB(MFReadBinaryStatements,MF_Discretization):
             text,totim,kstp,kper,success=self.next()
             #print text,totim,kstp,kper
             if (success):
-            	if (string.strip(string.ljust(text,16)) == string.strip(string.ljust(fluxtype,16))):
-#				if (cmp(string.strip(string.ljust(text,16)),\
-#				string.strip(string.ljust(fluxtype,16)))) == 0:
-					return self.flux,totim,True
+                if (string.strip(string.ljust(text,16)) == string.strip(string.ljust(fluxtype,16))):
+#                               if (cmp(string.strip(string.ljust(text,16)),\
+#                               string.strip(string.ljust(fluxtype,16)))) == 0:
+                                        return self.flux,totim,True
             else:
                 return numpy.empty((self.nlay,self.nrow,self.ncol)),0.,False
                 
-    def get_record(self,fluxtype,*args):
-		while(True):
-			text,totim,kstp,kper,success=self.next()
-			if (success):
-#				if (cmp(string.strip(string.ljust(text,16)),\
-#				string.strip(string.ljust(fluxtype,16)))) == 0:
-				if ( string.strip(string.ljust(text,16)) == string.strip(string.ljust(fluxtype,16)) ):
-				    try:
-				        kkstp = args[0]
-				        kkper = args[1]
-				        if (kstp == kkstp and kper == kkper):
-				            return self.flux,totim,True
-				    except:
-				        try:
-				            target_totim = float(args[0])
-				            #dt = abs( totim - target_totim )
-				            if target_totim <= totim:
-				                return self.flux,totim,True
-				        except:
-				            return self.flux,totim,True
-			else:
-				return numpy.zeros((self.nlay,self.nrow,self.ncol),dtype='float')+1.0E+32,0.,False
+    def get_record(self,fluxtype,kkstp,kkper):
+                while(True):
+#            text,totim,kstp,kper,success=self.read_next_cbb()
+                        text,totim,kstp,kper,success=self.next()
+                        if (success):
+#                               if (kstp == kkstp and kper == kkper and \
+#                               cmp(string.strip(string.ljust(text,16)),\
+#                               string.strip(string.ljust(fluxtype,16)))) == 0:
+#                                       return self.flux,totim,True
+                                if (cmp(string.strip(string.ljust(text,16)),\
+                                string.strip(string.ljust(fluxtype,16)))) == 0:
+                                        if (kstp == kkstp and kper == kkper):
+                                                return self.flux,totim,True
+                        else:
+                                return numpy.zeros((self.nlay,self.nrow,self.ncol),dtype='float')+1.0E+32,0.,False
 
     def print_cbb_info(self):
         success=True
@@ -702,31 +631,6 @@ class MODFLOW_CBB(MFReadBinaryStatements,MF_Discretization):
             print text,'totim:',totim
         return
 
-    def time_list(self,fluxtype):
-        if fluxtype==None:
-            self.file.seek(0)
-            text,totim,kstp,kper,success=self.next()
-            fluxtype = text
-        self.file.seek(0)
-        times = []
-        while True:
-            current_position = self.file.tell()
-            text,totim,kstp,kper,success=self.next()
-            if success == True:
-                if text==fluxtype:
-                    times.append([totim,kstp,kper,current_position])
-            else: 
-                self.file.seek(0)
-                times = numpy.array( times )
-                return times
-
-    def get_array(self,iposition):
-        self.file.seek(iposition)
-        text,totim,kstp,kper,success=self.next()
-        if success == True:
-            return self.flux,totim,True
-        else:
-            return numpy.empty((self.nlay,self.nrow,self.ncol)),0.,False
 
     
 class MT3D_Concentration(MFReadBinaryStatements,MF_Discretization):
@@ -737,58 +641,21 @@ class MT3D_Concentration(MFReadBinaryStatements,MF_Discretization):
         self.h = numpy.zeros((self.nlay, self.nrow, self.ncol),dtype='float')+1.0E+32
         #open binary head file
         self.file=open(filename,'rb')
-        self.times = self.time_list()
-
-        #self.NTRANS=-999
-        #self.KSTP=-999
-        #self.KPER=-999
-        #self.TOTIM=-999
-        #self.TEXT=-999
-        #self.NCOL=-999
-        #self.NROW=-999
-        #self.ILAY=-999
-        self.totim = -999
-        self.kper = -999
-        self.kstp = -999
-        self.ntrans = -999
-
-
-
-    def get_time_list(self):
-        return self.times
-
-
-    def get_array(self,iposition):
-        self.file.seek(iposition)
-        totim,h,kstp,kper,success = self.next()
-        if success == True:        
-            return totim,kstp,kper,h,True
-        else:
-            return 0.0,0,0,numpy.zeros((self.nlay,self.nrow,self,ncol),dtype='float')+1.0E+32,False 
-
 
     def read_header(self):
         try:
-            #self.NTRANS=self.read_integer()
-            #self.KSTP=self.read_integer()
-            #self.KPER=self.read_integer()
-            #self.TOTIM=self.read_real()
-            #self.TEXT=self.read_text()
-            #self.NCOL=self.read_integer()
-            #self.NROW=self.read_integer()
-            #self.ILAY=self.read_integer()
+            self.NTRANS=self.read_integer()
+            self.KSTP=self.read_integer()
+            self.KPER=self.read_integer()
+            self.TOTIM=self.read_real()
+            self.TEXT=self.read_text()
+            self.NCOL=self.read_integer()
+            self.NROW=self.read_integer()
+            self.ILAY=self.read_integer()
 
-            NTRANS=self.read_integer()
-            KSTP=self.read_integer()
-            KPER=self.read_integer()
-            TOTIM=self.read_real()
-            TEXT=self.read_text()
-            NCOL=self.read_integer()
-            NROW=self.read_integer()
-            ILAY=self.read_integer()
-            return NTRANS,KSTP,KPER,TOTIM,TEXT,NCOL,NROW,ILAY,True
+            return True
         except:
-            return -999,-999,-999,-999,-999,-999,-999,-999,False
+            return False
 
     def read_layerconcens(self):
         cl = self.read_2drealarray()
@@ -798,62 +665,50 @@ class MT3D_Concentration(MFReadBinaryStatements,MF_Discretization):
     def __iter__(self):
         return self
 
-    
-    def time_list(self):    
-        self.file.seek(0)
-#        current_position = self.file.tell()
-        times = []
-        while True:
-            current_position = self.file.tell()
-            totim,h,kstp,kper,success = self.next()
-            if success == True:
-                #this_time = [totim,kstp,kper,current_position]
-                times.append([totim,kstp,kper,current_position])
-#                current_position = self.file.tell()
-            else: 
-                self.file.seek(0)
-                times = numpy.array( times )
-                return times
-
     def next(self):
      for k in range(self.nlay):
-         NTRANS,KSTP,KPER,TOTIM,TEXT,NCOL,NROW,ILAY,success=self.read_header()
-         if success:
-             assert NCOL==self.ncol, 'NCOL not consistent with binary heads file.'
-             assert NROW==self.nrow, 'NROW not consistent with binary heads file.'
-             self.h[ILAY-1, :, :] = self.read_layerconcens()
+         success=self.read_header()
+         if(success):
+             assert self.NCOL==self.ncol, 'NCOL not consistent with binary heads file.'
+             assert self.NROW==self.nrow, 'NROW not consistent with binary heads file.'
+             self.h[self.ILAY-1, :, :] = self.read_layerconcens()
          else:
-             print 'MT3DMS_Concentration object.read_next_heads() reached end of file.'
-             return 0., numpy.zeros((self.nlay, self.nrow, self.ncol),dtype='float')+1.0E+32, 0,0,False
-     #print 'MT3DMS concentration read (ntrans,kstp,kper,time): ',NTRANS,KSTP,KPER,TOTIM 
-     self.kper = KPER
-     self.ntrans = NTRANS
-     self.kstp = KSTP
-     self.totim = TOTIM
-     return self.totim,self.h,self.kstp,self.kper,True
+             #print 'MT3DMS_Concentration object.read_next_heads() reached end of file.'
+             return 0.,0,0, numpy.zeros((self.nlay, self.nrow, self.ncol),dtype='float')+1.0E+32,False
+     #print 'MT3DMS concentration read (ntrans,kstp,kper,time): ',self.NTRANS,self.KSTP,self.KPER,self.TOTIM 
+     return self.TOTIM,self.KSTP,self.KPER,self.h,True
      
     def get_record(self,*args):
-     	try:
-     		kkspt = args[0]
-     		kkper = args[1]
-    		while True:
-    			totim,concen,kstp,kper,success = self.next()
-    			if success:
-    				if kstp == kkspt and kkper == kper:
-    					return totim,kstp,kper,concen,True
-    			else:
-    				return 0.0,0,0,numpy.zeros((self.nlay,self.nrow,self,ncol),dtype='float')+1.0E+32,False 
-    	except:
-    		target_totim = args[0]
-    		while True:
-    			totim,concen,kstp,kper,success = self.next()
-    			if success:
-    				if target_totim == totim:
-    					return totim,kstp,kper,concen,True
-    			else:
-    				return 0.0,0,0,numpy.zeros((self.nlay,self.nrow,self.ncol),dtype='float')+1.0E+32,False
-    			
-    			 	
+        try:
+                kkspt = args[0]
+                kkper = args[1]
+                while True:
+                        totim,kstp,kper,concen,success = self.next()
+                        if success:
+                                if kstp == kkspt and kkper == kper:
+                                        return totim,kstp,kper,concen,True
+                        else:
+                                return 0.0,0,0,numpy.zeros((self.nlay,self.nrow,self,ncol),dtype='float')+1.0E+32,False 
+        except:
+            try:
+                target_totim = args[0]                
+                while True:
+                    totim,kstp,kper,concen,success = self.next()
+                    if success:
+                        if target_totim <= totim:
+                            return totim,kstp,kper,concen,True
+                    else:
+                        return 0.0,0,0,numpy.zeros((self.nlay,self.nrow,self.ncol),dtype='float')+1.0E+32,False
+            except:
+                previous = self.next()
+                while True:
+                    this_record = self.next()
+                    if this_record[-1] == False:
+                        return previous
+                    else: previous = this_record
+                    
+                        
+                                
 class FVSWS_Record(FVSWSReadBinaryStatements):
     def __init__(self,filename):
         #--type = 0 = computation element record
@@ -874,7 +729,7 @@ class FVSWS_Record(FVSWSReadBinaryStatements):
     
     def get_header_items(self):
         return ['totim','dt','kper','kstp','success_flag'] 
- 
+
     def get_item_list(self):
         list = ['stage','qeast','qsouth','rain','evap',\
                         'latflow','qcrflow','dv','inf-out','volume']
@@ -884,18 +739,18 @@ class FVSWS_Record(FVSWSReadBinaryStatements):
         return self.botm
 
     def get_row_col(self):
-		rc = [self.nrow, self.ncol]
-		return rc
+                rc = [self.nrow, self.ncol]
+                return rc
 
     #--zero indexed row column location from one-based node number
     def get_row_col_loc(self, rec_num):
-    	if ( rec_num < 1 or rec_num > self.nodes ):
-    		rc = [0, 0]
-    	else:
-    		onrow = math.ceil( float(rec_num) / float(self.ncol) )
-    		oncol = float(rec_num) - ( (onrow - 1.0) * float(self.ncol) )
-    		rc = [int(onrow)-1, int(oncol)-1]
-    	return rc
+        if ( rec_num < 1 or rec_num > self.nodes ):
+                rc = [0, 0]
+        else:
+                onrow = math.ceil( float(rec_num) / float(self.ncol) )
+                oncol = float(rec_num) - ( (onrow - 1.0) * float(self.ncol) )
+                rc = [int(onrow)-1, int(oncol)-1]
+        return rc
 
     def read_header(self):
         try: 
@@ -972,8 +827,7 @@ class FVSWS_Record(FVSWSReadBinaryStatements):
 #            print 'SWR_Stage.next() object reached end of file'
             return 0.0,0.0,0,0,self.null_record,False
         else:
-        	r = self.read_record()
+                r = self.read_record()
 #        print 'SWR data read for time step ',kstp,',stress period \
 #                    ',kper,'and swr step ',swrstp
         return totim,dt,kper,kstp,r,True
-   	

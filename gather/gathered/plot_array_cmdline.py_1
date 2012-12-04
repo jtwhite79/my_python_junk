@@ -1,0 +1,7 @@
+import sys
+import numpy as np
+import arrayUtil as au
+
+arr = np.loadtxt(sys.argv[1])
+au.plotArray(arr,1,1)
+    
