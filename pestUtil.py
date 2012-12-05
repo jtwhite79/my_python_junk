@@ -298,7 +298,7 @@ class smp():
             for site in sites:
                 record = records[site]            
                 dict = {'date':record[:,0],site:record[:,1]}
-                df = pandas.DataFrame({'site':record[:,1].astype(np.float32)},index=record[:,0])                
+                df = pandas.DataFrame({site:record[:,1].astype(np.float32)},index=record[:,0])                
                 dfs.append(df)
                 #df = pandas.merge(df,df2,how='outer',right_on='date',left_on='date')
             #df.index = df['date']
@@ -476,11 +476,13 @@ class smp():
                 f.seek(last)
                 return f
         
-    def save(self,fname):
+    def save(self,fname,dropna=False):
         if len(self.records) > 0:
             f = open(fname,'w')
             for site,data in self.records.iteritems():
                 if self.pandas:                                        
+                    if dropna:
+                        data = data.dropna()
                     for dt,value in zip(data.index,data.values):                
                         f.write(str(site).ljust(10)+' '+dt.strftime(self.date_fmt+' %H:%M:%S')+'  {0:25.8e}\n'.format(value))              
                 else:

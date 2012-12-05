@@ -118,8 +118,14 @@ class mtbtn(package):
         if (self.timprs == None):
             f_btn.write('%10i\n' % (self.nprs))
         else:
-            f_btn.write('%10i\n' % (len(self.timprs)))            
-            self.parent.write_array( f_btn, self.timprs, self.unit_number[0], False, 10, 8, '' )            
+            f_btn.write('%10i\n' % (len(self.timprs))) 
+            for i,tim in enumerate(self.timprs):
+                f_btn.write('{0:10.0f}'.format(tim))
+                if (i+1) % 8 == 0 :
+                    f_btn.write('\n')   
+            if len(self.timprs) % 8 != 0:
+                f_btn.write('\n')                                                        
+            #self.parent.write_array( f_btn, self.timprs, self.unit_number[0], False, 10, 8, '' )            
         # OBS
         if (self.obs == None):
             f_btn.write('%10i%10i\n' % (0, self.nprobs))

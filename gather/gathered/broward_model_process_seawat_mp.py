@@ -229,7 +229,7 @@ def main():
     
     #-- stress period step
     sp_step = 1
-    plt_dir = 'png\\results\\'
+    plt_dir = 'png\\results\\seawat\\'
 
     #--for ffmpeg - sequentially numbered
     plt_num = 1
