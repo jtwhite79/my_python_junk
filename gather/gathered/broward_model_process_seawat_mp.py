@@ -102,10 +102,10 @@ def plot_worker(jobq,pid,conc_file):
         print np.max(c[lay_idxs[1],:,:])
 
 
-        p1 = ax1.imshow(c[lay_idxs[0],:,:],extent=imshow_extent,cmap=cmap,interpolation='none')
-        p2 = ax2.imshow(c[lay_idxs[1],:,:],extent=imshow_extent,cmap=cmap,interpolation='none')
-        p3 = ax3.imshow(c[lay_idxs[2],:,:],extent=imshow_extent,cmap=cmap,interpolation='none')
-        p4 = ax4.imshow(c[lay_idxs[3],:,:],extent=imshow_extent,cmap=cmap,interpolation='none')
+        p1 = ax1.imshow(c[lay_idxs[0],:,:],extent=imshow_extent,cmap=cmap,interpolation='none',vmax=1.0,vmin=0.0)
+        p2 = ax2.imshow(c[lay_idxs[1],:,:],extent=imshow_extent,cmap=cmap,interpolation='none',vmax=1.0,vmin=0.0)
+        p3 = ax3.imshow(c[lay_idxs[2],:,:],extent=imshow_extent,cmap=cmap,interpolation='none',vmax=1.0,vmin=0.0)
+        p4 = ax4.imshow(c[lay_idxs[3],:,:],extent=imshow_extent,cmap=cmap,interpolation='none',vmax=1.0,vmin=0.0)
                 
         
         cb1 = pylab.colorbar(p1,cax=cax1,orientation='horizontal')
@@ -302,7 +302,14 @@ def main():
     for p in procs:
         p.join() 
         print p.name,'Finished' 
-    return             
+    
+    anim_name = 'png\\demo_conc.avi'
+    if os.path.exists(anim_name):
+        os.remove(anim_name)
+    cmd_line = 'ffmpeg.exe -i png\\results\\seawat\\sp%03d_conc.png -r 24 '+anim_name+' -y'
+    os.system(cmd_line)    
+    return                
+        
 
 if __name__ == '__main__':
     main()

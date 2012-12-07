@@ -44,7 +44,7 @@ shutil.copy(flow.root+'.rch',seawat.root+'.rch')
 rch = mfaddoutsidefile(mf,'RCH','rch',127)
 wel = mfaddoutsidefile(mf,'WEL','wel',128)
 
-#shutil.copy(flow.root+'.riv',seawat.root+'.riv')
+shutil.copy(flow.root+'.riv',seawat.root+'.riv')
 riv = mfaddoutsidefile(mf,'RIV','riv',124)
 
 #--mt3d
@@ -78,7 +78,7 @@ vdf = mswtvdf(swt,mtdnconc=1,mfnadvfd=2,nswtcpl=1,iwtable=1,densemin=0,densemax=
 mf.write_input()
 mt.write_input()
 swt.write_input()
-#os.system('mfnwt-SWR_x64.exe '+modelname+'.nam')
+os.system('swt_v4x64.exe '+modelname+'.nam_swt')
 
 
 

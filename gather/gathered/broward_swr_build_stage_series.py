@@ -5,7 +5,7 @@ import pandas
 import shapefile
 
 import pestUtil as pu
-import bro
+from bro import flow
 
 #--get the dbhydro sampled monthly series
 db_dir = '..\\_dbhydro\\stressperiod_stage_smp_navd\\'
@@ -24,13 +24,13 @@ noaa_smp = pu.smp(noaa_file,load=True,pandas=True)
 noaa_df = noaa_smp.records
 
 #--load the reach shapefile from swrpre
-swr_shapename = '..\\_gis\\scratch\\sw_reaches_conn_SWRpolylines'
+swr_shapename = '..\\_gis\\scratch\\sw_reaches_conn_SWRpolylines_2'
 shp = shapefile.Reader(swr_shapename)
 fnames = shapefile.get_fieldnames(swr_shapename)
 ibnd_idx,stg_idx,reach_idx = 16,17,22
 
 stg_dict = {}
-m_range = bro.sp_end
+m_range = flow.sp_end
 
 out_dir = 'reach_series\\'
 reach_dfs = []
@@ -66,7 +66,7 @@ for i in range(shp.numRecords):
         for df2 in dfs[1:]:
             df = df.combine_first(df2)
         #df = df.dropna()
-        df = df[bro.start:bro.end]
+        df = df[flow.start:flow.end]
         if len(df) != len(df.dropna()):
             raise Exception('incomplete record '+str(reach))
         df.to_csv(out_dir+str(reach)+'.csv',index_label='datetime')

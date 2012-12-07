@@ -26,7 +26,7 @@ for sday,eday in zip(flow.sp_start,flow.sp_end):
     evap[eday] = '#DATASET 8B EVAP\nOPEN/CLOSE '+ets_dir+ets_files[ets_dts.index(sday)] + ' {0:10.5f} (BINARY)  -1\n'.format(flow.ets_mult)
 
 #--swrpre polyline shapefile with all the info
-swr_shapename = '..\\..\\_gis\\scratch\\sw_reaches_conn_SWRpolylines'
+swr_shapename = '..\\..\\_gis\\scratch\\sw_reaches_conn_SWRpolylines_2'
 shp = shapefile.Reader(swr_shapename)
 fieldnames = shapefile.get_fieldnames(swr_shapename)
 for i,name in enumerate(fieldnames):

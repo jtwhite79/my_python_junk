@@ -52,7 +52,6 @@ for f in files:
         #df = df.fillna(method='bfill')
         dfs[wellnum] = df
 
-
 mod_dfs = []
 bore_coords_lines = []
 for wnum,row,col,x,y in zip(wellnums,rows,cols,xs,ys):
@@ -65,9 +64,7 @@ for wnum,row,col,x,y in zip(wellnums,rows,cols,xs,ys):
         print sname
         line = sname+' {0:20.8G}  {1:20.8G} {2:d}\n'.format(x,y,ilay+1)
         bore_coords_lines.append(line)
-
         #print seawat.layer_botm_names[ilay]
-
         mod_dicts[sname] = df[group].mean(axis=1).dropna()  
     df = pandas.DataFrame(mod_dicts)
     df.to_csv(df_dir+str(wnum)+'_mod.csv',index_label='datetime')              
@@ -76,7 +73,7 @@ df = pandas.concat(mod_dfs,axis=1)
 smp = pu.smp(None,load=False,pandas=True)
 smp.records = df
 smp_dir = '..\\..\\_ftl_salt\\'
-smp.save(smp_dir+'ftl_mod.smp',dropna=True)
+smp.save(smp_dir+'ftl_cali.smp',dropna=True)
 
 f = open(smp_dir+'ftl_borecoords.dat','w',0)
 for line in bore_coords_lines:

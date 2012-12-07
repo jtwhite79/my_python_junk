@@ -1,4 +1,5 @@
 from datetime import datetime,timedelta
+from dateutil.relativedelta import relativedelta
 import numpy as np
 import pandas
 '''just a container for model details
@@ -25,10 +26,15 @@ class bro:
     assert len(sp_start) == len(sp_end)
     assert len(sp_len) == len(sp_end)
     nper = len(sp_start)
-         
     
-
-    
+    #--for sampling the water level data: +/- 7 days of the end of the sp
+    obs_offset = timedelta(days=7)
+    obs_start,obs_end = [],[]
+    for sp_s,sp_e,sp_l in zip(sp_start,sp_end,sp_len):       
+        obs_start.append(sp_e - obs_offset)
+        obs_end.append(sp_e + obs_offset)
+   
+   
 
 class flow(bro):    
     root = 'flow'    
