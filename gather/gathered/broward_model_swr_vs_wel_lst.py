@@ -2,14 +2,14 @@ import numpy as np
 import pylab
 import pandas
 import mflst
-import bro
+from bro import flow
 '''compare the wel+swr flux to the wel flux
 '''
 maxentries=749
-swr_lst = mflst.mfbudget('bro.list')
-wel_lst = mflst.mfbudget('bro_seawat.list')
+swr_lst = mflst.mfbudget('flow.list')
+wel_lst = mflst.mfbudget('flow_noriv.list')
 
-ltime = mflst.lsttime('bro.list',start=bro.start)
+ltime = mflst.lsttime('flow.list',start=flow.start)
 ltime.load(maxentries=maxentries) 
 swr_time = ltime.to_pandas()
 
@@ -26,6 +26,7 @@ tot_swr_flux = -1.0 * np.loadtxt('tot_vol_record.dat',usecols=[1])
 fig = pylab.figure()
 ax1 = pylab.subplot(311)
 ax2 = pylab.subplot(312)
+axt = pylab.twinx()
 ax3 = pylab.subplot(313)
 
 swr_flux.select(lambda x:x[1]=='SWR LEAKAGE',axis=1).to_csv('swr_flux.csv')
@@ -46,6 +47,7 @@ aq_wel.plot(ax=ax1)
 ax1.lines[0].set_color('k')
 ax1.lines[0].set_color('g')
 (aq_swr-aq_wel).plot(ax=ax2)
+np.cumsum(aq_swr-aq_wel).plot(ax=axt)
 (aq_swr - swr_flux['tot_vol']).plot(ax=ax3)
 pylab.show()
 

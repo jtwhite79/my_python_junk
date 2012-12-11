@@ -98,5 +98,10 @@ class seawat(bro):
     plt_x = [825000.0,x.max()]
     plt_y = [offset[1],712000.0]
 
+    sea_conc = 1.0
+    brackish_conc = 0.5
+    fresh_conc = 0.0
+
+
   
     

@@ -16,7 +16,6 @@ sea_conc = 1.0
 brackish_conc = 0.5
 fresh_conc = 0.0
 
-
 #--load a list of RIV locs and concentrtaions
 #--into a dict that is keyed in the row-col tuple
 print 'loading swr reach - concentration info'
@@ -34,8 +33,6 @@ for reach,strnum in zip(records['REACH'],records['SRC_struct']):
     else:
         swr_conc[reach] = fresh_conc
 
-
-
 #--load a list of well locs
 print 'loading well info'
 wel_lrcconc = []
@@ -43,7 +40,8 @@ wel_itype = 2
 #--use one of the bndlist wel records
 bnd_dir = seawat.list_dir
 bnd_files = os.listdir(bnd_dir)
-bnd_str = 'WEL'
+
+bnd_str = 'WELSWR'
 wel_sp = {}
 mxact_wel = None
 for bfile in bnd_files:
@@ -53,58 +51,20 @@ for bfile in bnd_files:
         dt = datetime.strptime(dt_str,'%Y%m%d')
         kper = list(seawat.sp_start).index(dt) + 1
         wel_array = np.loadtxt(bnd_dir+bfile,usecols=[0,1,2])
-        active = []
-        
-        for [lay,row,col] in wel_array:
-            line = get_ssm_line(lay,row,col,fresh_conc,wel_itype)
-            active.append(line)
-                                
+        active = []        
+        f = open(bnd_dir+bfile,'r')
+        for i,line in enumerate(f):
+            lay,row,col = wel_array[i,:]
+            if 'REACH' in line.upper():
+                #--find reach number
+                reach = int(line.upper().split('REACH')[-1].split()[0])
+                ssmline = get_ssm_line(lay,row,col,swr_conc[reach],wel_itype)
+                active.append(ssmline)
+            else:
+                ssmline = get_ssm_line(lay,row,col,fresh_conc,wel_itype)
         wel_sp[kper] = active
         mxact_wel = max(mxact_wel,len(active))
 
-#--load the swr-output river package
-
-
-print 'loading SWR-output river info'
-riv_filename = flow.root+'.riv'
-f = open(riv_filename,'r')
-while True:
-    line = f.readline()
-    if not line.strip().startswith('#'):
-        break
-mxact_riv = int(line.split()[0])
-#--start sp loop
-kper = 1
-riv_sp = {}
-while True:
-    #print kper
-    line = f.readline()
-    if line == '':
-        break
-    sp_act = int(line.split()[0])
-    active = []
-    for i in range(sp_act):
-        line = f.readline()
-        raw = line.strip().split()
-        r = int(raw[1])
-        c = int(raw[2])
-        active.append((r,c))
-    riv_sp[kper] = active
-    kper += 1
-
-
-
-#--load a list of RIV locs and concentrtaions
-#--into a dict that is keyed in the row-col tuple
-shapename = '..\\..\\_gis\\scratch\\sw_reaches_conn_swrpolylines_2'
-records = shapefile.load_as_dict(shapename,loadShapes=False)
-fnames = shapefile.get_fieldnames(shapename)
-#print fnames
-riv_itype = 4
-riv_lrcconc = {}
-for r,c,reach in zip(records['ROW'],records['COLUMN'],records['REACH']):
-    line = get_ssm_line(1,r,c,swr_conc[reach],riv_itype)
-    riv_lrcconc[(r,c)] = line
 
 #--load a list of GHB locs and concentrations
 print 'loading ghb info'
@@ -128,10 +88,11 @@ for i in range(flow.nrow):
 print 'writing ssm file'                
 mxact_ghb = len(ghb_lrcconc)
 
-mxss = mxact_ghb + mxact_riv + mxact_wel
+mxss = mxact_ghb + mxact_wel
 f_ssm = open(seawat.root+'.ssm','w',0)
 #f_ssm.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
-flags = ['T','F','T','T','T','T','F','F','F','F']
+flags = ['T','F','T','T','F','T','F','F','F','F']
+
 for f in flags:
     f_ssm.write('{0:2}'.format(f))
 f_ssm.write('\n{0:10.0f}\n'.format(mxss))
@@ -148,16 +109,12 @@ for i,start in enumerate(flow.sp_start):
     else:
         f_ssm.write('{0:10.0f}\n{1:10.0f}\n'.format(-1,-1))
 
-    #--point sources/sinks
-    riv_act = riv_sp[i+1]
+    #--point sources/sinks    
     wel_lines = wel_sp[i+1]
-    mxss = mxact_ghb + len(wel_lines) + len(riv_act)
+    mxss = mxact_ghb + len(wel_lines)
     f_ssm.write('{0:10.0f}\n'.format(mxss))
     for line in ghb_lrcconc:
-        f_ssm.write(line)
-    #for line in riv_lrcconc:
-    for rc_tup in riv_act:
-        f_ssm.write(riv_lrcconc[rc_tup])
+        f_ssm.write(line)    
     for line in wel_lines:
         f_ssm.write(line)
 

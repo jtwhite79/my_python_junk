@@ -370,18 +370,23 @@ class SWR_Record(SWRReadBinaryStatements):
         else:
             if self.type > 0:
                 #r = numpy.zeros((self.items+1)) 
-                r = numpy.zeros((self.items+2)) 
+                #r = numpy.zeros((self.items+2))
+                r = [] 
                 for rec in range(0,self.nrecord):
                     #nlay = self.read_integer()
                     nlay = self.reachlayers[rec]
                     for lay in range(0,nlay):
                         this_lay = self.read_integer()
-                        this_items = self.read_items()
-                        this_r = numpy.insert(this_items,[0],this_lay)
-                        this_r = numpy.insert(this_r,[0],rec+1)
+                        this_r = [this_lay,rec+1]
+                        this_r.extend(self.read_items())
+                        #this_items = self.read_items()
+                        #this_r = numpy.insert(this_items,[0],this_lay)
+                        #this_r = numpy.insert(this_r,[0],rec+1)
                         #print totim,this_lay,numpy.shape(r),numpy.shape(this_r)
-                        r = numpy.vstack((r,this_r))
-                r = numpy.delete(r,0,axis=0)
+                        #r = numpy.vstack((r,this_r))
+                        r.append(this_r)
+                #r = numpy.delete(r,0,axis=0)
+                r = numpy.array(r)
                 return totim,dt,kper,kstp,swrstp,True,r
             else:
                 r = self.read_record()

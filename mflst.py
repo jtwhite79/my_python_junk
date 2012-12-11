@@ -259,7 +259,7 @@ class lsttime(lstbudget):
         self.sptim = []
         self.totim = []
         #self.lstkey = re.compile(key_str)
-        self.lstkey = key_string
+        self.lstkey = key_str
         self.tssp_lines = 0
         self.ts_idxs = [42,47]
         self.sp_idxs = [63,69]

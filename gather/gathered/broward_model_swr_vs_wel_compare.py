@@ -13,7 +13,7 @@ import pandas
 import MFBinaryClass as mfb 
 import shapefile as sf
 
-import bro
+from bro import flow
 
 from matplotlib.pyplot import *
 import matplotlib as mpl
@@ -38,7 +38,7 @@ mpl.rcParams['ytick.labelsize']  = ticksize
 hd_levels = [-15.0,-5.0,-2.5,0.0,2.5,5.0,15.0]
 dtw_levels = [0.0,1.5,2.5,5.0,15.0]
 
-imshow_extent = [bro.x[0],bro.x[-1],bro.y[0],bro.y[-1]]
+imshow_extent = [flow.x[0],flow.x[-1],flow.y[0],flow.y[-1]]
 #mask_color = '#E0E0E0'
 mask_color = '#FFFFFF'
 cmap = mpl.cm.jet 
@@ -57,27 +57,17 @@ elevmin = 0.1
 
 
 
-def plot_worker(jobq,pid,dry_elev,zta_elev):
+def plot_worker(jobq,pid,dry_elev,zta_elev,hds1,hds2,zta1,zta2):
    
 
-    headObj1 = mfb.MODFLOW_Head(bro.nlay,bro.nrow,bro.ncol,bro.modelname+'.hds')
-    htimes1 = headObj1.get_time_list()
-    ntimes1 = htimes1.shape[0]
+    headObj1 = mfb.MODFLOW_Head(flow.nlay,flow.nrow,flow.ncol,hds1)
+    
+    headObj2 = mfb.MODFLOW_Head(flow.nlay,flow.nrow,flow.ncol,hds2)
 
-    headObj2 = mfb.MODFLOW_Head(bro.nlay,bro.nrow,bro.ncol,bro.seawatname+'.hds')
-    htimes2 = headObj2.get_time_list()
-    ntimes2 = htimes2.shape[0]
-
-    zeta_file1 = bro.modelname+'.zta'
-    zetaObj1 = mfb.MODFLOW_CBB(bro.nlay,bro.nrow,bro.ncol,zeta_file1)
-    zta_text1 = '    ZETAPLANE  1'
-    z1times1 = zetaObj1.get_time_list(zta_text1)
-
-    zeta_file2 = bro.seawatname+'.zta'
-    zetaObj2 = mfb.MODFLOW_CBB(bro.nlay,bro.nrow,bro.ncol,zeta_file2)
-    zta_text2 = '    ZETAPLANE  1'
-    z1times2 = zetaObj1.get_time_list(zta_text2)
-
+    zetaObj1 = mfb.MODFLOW_CBB(flow.nlay,flow.nrow,flow.ncol,zta1)
+    
+    zetaObj2 = mfb.MODFLOW_CBB(flow.nlay,flow.nrow,flow.ncol,zta2)
+   
     while True:
         args = jobq.get()
         if args == None:
@@ -109,28 +99,31 @@ def plot_worker(jobq,pid,dry_elev,zta_elev):
         
         totim,kstp,kper,h1,success = headObj1.get_array(hds1_seekpoint)        
         hd1 = h1[h_layer_idx,:,:]                        
-        hd1 = np.ma.masked_where(np.logical_and(bro.ibound!=1,bro.ibound!=2),hd1)        
+        hd1 = np.ma.masked_where(np.logical_and(flow.ibound!=1,flow.ibound!=2),hd1)        
         
         totim,kstp,kper,h2,success = headObj2.get_array(hds2_seekpoint)        
         hd2 = h2[h_layer_idx,:,:]                        
-        hd2 = np.ma.masked_where(np.logical_and(bro.ibound!=1,bro.ibound!=2),hd2)        
+        hd2 = np.ma.masked_where(np.logical_and(flow.ibound!=1,flow.ibound!=2),hd2)        
         
         hd_diff = hd1 - hd2
         hd_diff = np.ma.masked_where(np.abs(hd_diff)<0.01,hd_diff)
 
-        hd1 = np.ma.masked_where(np.abs(hd_diff)<0.01,hd1)        
+        #hd1 = np.ma.masked_where(np.abs(hd_diff)<0.01,hd1)        
         hd2 = np.ma.masked_where(np.abs(hd_diff)<0.01,hd2)        
 
         
         z1,totim,success = zetaObj1.get_array(zta1_seekpoint)               
         z1 = z1[z_layer_idx,:,:]        
         z1m = np.ma.masked_where(z1 < zta_elev,z1)
-        z1m = np.ma.masked_where(np.logical_and(bro.ibound!=1,bro.ibound!=2),z1m)
+        z1m = np.ma.masked_where(np.logical_and(flow.ibound!=1,flow.ibound!=2),z1m)
         
         z2,totim,success = zetaObj2.get_array(zta2_seekpoint)               
         z2 = z2[z_layer_idx,:,:]        
         z2m = np.ma.masked_where(z2 < zta_elev,z2)
-        z2m = np.ma.masked_where(np.logical_and(bro.ibound!=1,bro.ibound!=2),z2m)
+        z2m = np.ma.masked_where(np.logical_and(flow.ibound!=1,flow.ibound!=2),z2m)
+
+        zt_diff = z1 - z2
+        zt_diff = np.ma.masked_where(np.abs(zt_diff)<0.1,zt_diff)
 
         fig = pylab.figure(figsize=(8,8))                
         
@@ -139,11 +132,12 @@ def plot_worker(jobq,pid,dry_elev,zta_elev):
         cax1 = pylab.axes((0.05,0.53,0.45,0.015))
         cax2 = pylab.axes((0.05,0.05,0.45,0.015)) 
         
-        vmax = max(np.max(hd1),np.max(hd2))
-        vmin = min(np.min(hd1),np.min(hd2))
+        #vmax = max(np.max(hd1),np.max(hd2))
+        #vmin = min(np.min(hd1),np.min(hd2))
+        vmax,vmin = 10,-5.0
 
         p1 = ax1.imshow(hd1,extent=imshow_extent,cmap=cmap,interpolation='none',vmax=vmax,vmin=vmin)
-        p2 = ax2.imshow(hd2,extent=imshow_extent,cmap=cmap,interpolation='none',vmax=vmax,vmin=vmin)
+        p2 = ax2.imshow(hd_diff,extent=imshow_extent,cmap=cmap,interpolation='none')#,vmax=vmax,vmin=vmin)
       
         cb1 = pylab.colorbar(p1,cax=cax1,orientation='horizontal')
         cb2 = pylab.colorbar(p2,cax=cax2,orientation='horizontal')
@@ -151,10 +145,10 @@ def plot_worker(jobq,pid,dry_elev,zta_elev):
         cb1.set_label('elevation $ft NGVD$')
         cb2.set_label('elevation $ft NGVD$')
 
-        ax1.set_ylim(bro.plt_y)
-        ax1.set_xlim(bro.plt_x)
-        ax2.set_ylim(bro.plt_y)
-        ax2.set_xlim(bro.plt_x)    
+        ax1.set_ylim(flow.plt_y)
+        ax1.set_xlim(flow.plt_x)
+        ax2.set_ylim(flow.plt_y)
+        ax2.set_xlim(flow.plt_x)    
             
         ax1.set_xticklabels([])
                         
@@ -164,8 +158,8 @@ def plot_worker(jobq,pid,dry_elev,zta_elev):
         ax4 = pylab.axes((0.525,0.055,0.45,0.45))               
         cax3 = pylab.axes((0.525,0.53,0.45,0.015))
         cax4 = pylab.axes((0.525,0.05,0.45,0.015))
-        p3 = ax3.imshow(hd_diff,extent=imshow_extent,interpolation='none',vmax=1.0,vmin=-1.0)
-        p4 = ax4.imshow(z2m,extent=imshow_extent,interpolation='none')        
+        p3 = ax3.imshow(z1m,extent=imshow_extent,interpolation='none')
+        p4 = ax4.imshow(zt_diff,extent=imshow_extent,interpolation='none')        
         
         cb3 = pylab.colorbar(p3,cax=cax3,orientation='horizontal')
         cb4 = pylab.colorbar(p4,cax=cax4,orientation='horizontal')
@@ -173,10 +167,10 @@ def plot_worker(jobq,pid,dry_elev,zta_elev):
         cb3.set_label('interface elevation $ft NGVD$')
         cb4.set_label('interface elevation $ft NGVD$')
 
-        ax3.set_ylim(bro.plt_y)
-        ax3.set_xlim(bro.plt_x)
-        ax4.set_ylim(bro.plt_y)
-        ax4.set_xlim(bro.plt_x)
+        ax3.set_ylim(flow.plt_y)
+        ax3.set_xlim(flow.plt_x)
+        ax4.set_ylim(flow.plt_y)
+        ax4.set_xlim(flow.plt_x)
 
         ax3.set_xticklabels([])
         ax3.set_yticklabels([])
@@ -236,35 +230,35 @@ def main():
     for i in range(shp.numRecords):
         rec = shp.record(i)
         year = int(rec[a_idx])
-        if year < bro.start.year:
-            year = bro.start.year
+        if year < flow.start.year:
+            year = flow.start.year
         dt = datetime(year=year,month=1,day=1)
         line_active.append(dt)
 
 
     #--head stuff
     #--use bot of Q5 to check for dry cells        
-    hds_elev = np.loadtxt('ref\\Q5_bot.ref')
+    hds_elev = np.loadtxt('flowref\\Q5_bot.ref')
     hds_layer_idx = 0
-    head_file1 = bro.modelname+'.hds'
-    headObj1 = mfb.MODFLOW_Head(bro.nlay,bro.nrow,bro.ncol,head_file1)
+    head_file1 = 'flow.hds'
+    headObj1 = mfb.MODFLOW_Head(flow.nlay,flow.nrow,flow.ncol,head_file1)
     htimes1 = headObj1.get_time_list()
 
-    head_file2 = bro.seawatname+'.hds'
-    headObj2 = mfb.MODFLOW_Head(bro.nlay,bro.nrow,bro.ncol,head_file2)
+    head_file2 = 'flow_noriv.hds'
+    headObj2 = mfb.MODFLOW_Head(flow.nlay,flow.nrow,flow.ncol,head_file2)
     htimes2 = headObj2.get_time_list()
 
 
     #--zeta stuff  
     zta_layer_idx = 0
-    zta_elev = np.loadtxt('ref\\T1_bot.ref')
-    zeta_file1 = bro.modelname+'.zta'
-    zetaObj1 = mfb.MODFLOW_CBB(bro.nlay,bro.nrow,bro.ncol,zeta_file1)
+    zta_elev = np.loadtxt('flowref\\Q1_bot.ref')
+    zeta_file1 = 'flow.zta'
+    zetaObj1 = mfb.MODFLOW_CBB(flow.nlay,flow.nrow,flow.ncol,zeta_file1)
     zta_text1 = '    ZETAPLANE  1'
     z1times1 = zetaObj1.get_time_list(zta_text1)
     
-    zeta_file2 = bro.seawatname+'.zta'
-    zetaObj2 = mfb.MODFLOW_CBB(bro.nlay,bro.nrow,bro.ncol,zeta_file2)
+    zeta_file2 = 'flow_noriv.zta'
+    zetaObj2 = mfb.MODFLOW_CBB(flow.nlay,flow.nrow,flow.ncol,zeta_file2)
     zta_text2 = '    ZETAPLANE  1'
     z1times2 = zetaObj2.get_time_list(zta_text2)
     
@@ -276,7 +270,7 @@ def main():
     plt_num = 1
     istart = 0
     q_args = []
-    for i,dt in enumerate(bro.sp_start):
+    for i,dt in enumerate(flow.sp_start):
         if i >= istart and i%sp_step == 0:
             print 'building args list for ',dt 
             try:
@@ -297,8 +291,8 @@ def main():
             if i == 0:
                 plt_start = dt
             else:
-                plt_start = bro.sp_start[i-sp_step]
-            plt_end = bro.sp_end[i]        
+                plt_start = flow.sp_start[i-sp_step]
+            plt_end = flow.sp_end[i]        
             pump_plt = pump[plt_start:plt_end]
             pump_plt_sum = pump_plt.sum()                          
             for wname,wpoint,wrow,wcol,wzbot in zip(well_names,well_points,well_rows,well_cols,well_zbots):            
@@ -322,11 +316,11 @@ def main():
     #return       
     
     procs = []
-    num_procs = 7
+    num_procs = 3
     
     for i in range(num_procs):
         #--pass the woker function jobq and a PID
-        p = mp.Process(target=plot_worker,args=(jobq,i,hds_elev,zta_elev))
+        p = mp.Process(target=plot_worker,args=(jobq,i,hds_elev,zta_elev,head_file1,head_file2,zeta_file1,zeta_file2))
         p.daemon = True
         print 'starting process',p.name
         p.start()
