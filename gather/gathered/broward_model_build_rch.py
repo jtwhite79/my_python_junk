@@ -62,7 +62,7 @@ def main():
     f = open(flow.root+'.rch','w')
     f.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
     #f.write(' {0:9.0f} {1:9.0f}\n'.format(0,0))
-    f.write(' {0:9.0f} {1:9.0f}\n'.format(3,0))
+    f.write(' {0:9.0f} {1:9.0f}\n'.format(3,flow.rch_unit))
 
 
     print 'processing stress periods'

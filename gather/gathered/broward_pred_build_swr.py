@@ -5,25 +5,27 @@ import pandas
 import shapefile
 
 import swr
-from bro import flow
+from bro_pred import flow
 
 
-#--build rain and evap entry dicts
+#--build rain and evap entry dicts - monthly only
 rch_dir,ets_dir = flow.ref_dir+'rch\\',flow.ref_dir+'ets\\'
 rch_files,ets_files = os.listdir(rch_dir),os.listdir(ets_dir)
 rch_dts,ets_dts = [],[]
 for rfile in rch_files:
-    dt = datetime.strptime(rfile.split('.')[0].split('_')[-1],'%Y%m%d')
-    rch_dts.append(dt)
+    #dt = datetime.strptime(rfile.split('.')[0].split('_')[-1],'%Y%m%d')
+    month = int(rfile.split('.')[0].split('_')[-1])
+    rch_dts.append(month)
 
 for efile in ets_files:
-    dt = datetime.strptime(efile.split('.')[0].split('_')[-1],'%Y%m%d')
-    ets_dts.append(dt)
+    #dt = datetime.strptime(efile.split('.')[0].split('_')[-1],'%Y%m%d')
+    month = int(efile.split('.')[0].split('_')[-1])
+    ets_dts.append(month)
 
 rain,evap = {},{}
 for sday,eday in zip(flow.sp_start,flow.sp_end):
-    rain[eday] = '#DATASET 7B RAIN\nOPEN/CLOSE '+rch_dir+rch_files[rch_dts.index(sday)] + ' {0:10.5f} (BINARY)  -1\n'.format(flow.rch_mult)
-    evap[eday] = '#DATASET 8B EVAP\nOPEN/CLOSE '+ets_dir+ets_files[ets_dts.index(sday)] + ' {0:10.5f} (BINARY)  -1\n'.format(flow.ets_mult)
+    rain[eday] = '#DATASET 7B RAIN\nOPEN/CLOSE '+rch_dir+rch_files[rch_dts.index(sday.month)] + ' {0:10.5f} (BINARY)  -1\n'.format(flow.rch_mult)
+    evap[eday] = '#DATASET 8B EVAP\nOPEN/CLOSE '+ets_dir+ets_files[ets_dts.index(sday.month)] + ' {0:10.5f} (BINARY)  -1\n'.format(flow.ets_mult)
 
 #--swrpre polyline shapefile with all the info
 swr_shapename = '..\\..\\_gis\\scratch\\sw_reaches_conn_SWRpolylines_2'
@@ -42,10 +44,9 @@ reaches,shp_records = swr.load_reaches_from_shape(swr_shapename,idx)
 reaches_act = []
 
 #--set the stage series for each reach
-stage_df = pandas.read_csv('..\\..\\_swr\\reach_series.csv',parse_dates=True,index_col=0)
+stage_df = pandas.read_csv('..\\..\\_swr\\reach_series_pred.csv',parse_dates=True,index_col=0)
 stage_reaches = stage_df.keys()
 for reach in reaches:
-    reach.iroute = 1
     rnum = int(reach.reach)
     if rnum == 1010:
         pass
@@ -117,8 +118,10 @@ f.write(ds_4a.get_entry(filename=flow.ref_dir+'swr\\ds_4a.dat')+'\n\n')
 ds_4b = swr.ds_4b(reaches)
 f.write(ds_4b.get_entry(filename=flow.ref_dir+'swr\\ds_4b.dat')+'\n\n')
 
+
 lateral_inflows = None
 
 swr_ts = swr.swr_timestep(f,reaches,rain,evap,lateral_inflows,igeonumr,data_11,flow.sp_end,datadir=flow.ref_dir+'swr\\')
 swr_ts.write_transient_sequence()
+
 

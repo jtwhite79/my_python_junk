@@ -47,12 +47,18 @@ class mswt(basemodel):
         f_nam.write('%s\t%3i\t%s\n' % (self.lst.name[0], self.lst.unit_number[0], self.lst.file_name[0]))
         f_nam.write('%s\n' % ('# Flow') )
         f_nam.write('%s' % self.__mf.get_name_file_entries())
-        for u,f in zip(self.mf.external_units,self.mf.external_fnames):
-            f_nam.write('DATA  {0:3d}  '.format(u)+f+'\n'	)
+        for u,f,b in zip(self.mf.external_units,self.mf.external_fnames,self.mf.external_binflag):
+            if b:
+                f_nam.write('DATA(BINARY)  {0:3d}  '.format(u)+f+' REPLACE\n'	)
+            else:
+                f_nam.write('DATA  {0:3d}  '.format(u)+f+'\n'	)
         f_nam.write('%s\n' % ('# Transport') )
         f_nam.write('%s' % self.__mt.get_name_file_entries())
-        for u,f in zip(self.mt.external_units,self.mt.external_fnames):
-            f_nam.write('DATA  {0:3d}  '.format(u)+f+'\n'	)
+        for u,f,b in zip(self.mt.external_units,self.mt.external_fnames,self.mt.external_binflag):
+           if b:
+                f_nam.write('DATA(BINARY)  {0:3d}  '.format(u)+f+' REPLACE\n'	)
+           else:
+                f_nam.write('DATA  {0:3d}  '.format(u)+f+'\n'	)
         f_nam.write('%s\n' % ('# Variable density flow') )
         f_nam.write('%s' % self.get_name_file_entries())
         f_nam.close()

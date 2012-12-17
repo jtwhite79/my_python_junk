@@ -8,7 +8,7 @@ from mf import *
 from mt import *
 from mswt import *
 from mfaddoutsidefile import mfaddoutsidefile
-from bro import flow
+from bro_pred import flow
 
 
 
@@ -52,8 +52,8 @@ dis = mfdis(mf,flow.nrow,flow.ncol,flow.nlay,flow.nper,nstp=nstp,delr=500,delc=5
 bas = mfbas(mf,ibound=ibound,strt=strt,hnoflo=1.0e+10)
 #upw = mfupw(mf,laytyp=0,hk=4500.0,vka=4500.0)
 #nwt = mfnwt(mf,headtol=0.15,fluxtol=100000.0,maxiterout=500)
-lpf = mflpf(mf,laytyp=0,hk=4500.0,vka=4500.0)
-gmg = mfgmg(mf,mxiter=100,hclose=0.3,rclose=3000.0)
+lpf = mflpf(mf,laytyp=0,hk=4500.0,vka=1500.0)
+gmg = mfgmg(mf,mxiter=100,hclose=0.25,rclose=1000.0)
 
 oc = mfoc(mf,words=['head','budget'],save_head_every=1)
 
@@ -85,5 +85,6 @@ mf.add_external(modelname+'.riv',107)
 
 mf.write_input()
 os.system('mfnwt-SWR_x64.exe '+modelname+'.nam')
+
 
 

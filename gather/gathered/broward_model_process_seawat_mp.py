@@ -83,7 +83,7 @@ def plot_worker(jobq,pid,conc_file):
         fig_title = args[5]               
 
         totim,kstp,kper,c,success = concObj.get_array(conc_seekpoint)
-        c = np.ma.masked_where(c<=1.0e-5,c)
+        c = np.ma.masked_where(c<=0.014,c)
 
 
         fig = pylab.figure(figsize=(8,8))                
@@ -100,7 +100,7 @@ def plot_worker(jobq,pid,conc_file):
         cax4 = pylab.axes((0.525,0.05,0.45,0.015))
 
         print np.max(c[lay_idxs[1],:,:])
-
+        print np.min(c[lay_idxs[1],:,:])
 
         p1 = ax1.imshow(c[lay_idxs[0],:,:],extent=imshow_extent,cmap=cmap,interpolation='none',vmax=1.0,vmin=0.0)
         p2 = ax2.imshow(c[lay_idxs[1],:,:],extent=imshow_extent,cmap=cmap,interpolation='none',vmax=1.0,vmin=0.0)
@@ -167,7 +167,7 @@ def plot_worker(jobq,pid,conc_file):
 
 
 
-def main():
+def main(num_plots):
 
     #--load well locations and pandas dataframe
     well_shapename = '..\\..\\_gis\\shapes\\pws_combine'
@@ -211,7 +211,7 @@ def main():
     #htimes = headObj.get_time_list()
 
     #--conc stuff
-    conc_lay_idxs = [1,2,3,4,5]
+    conc_lay_idxs = [0,2,3,4,5]
     conc_file = 'MT3D001.UCN'
     concObj = mfb.MT3D_Concentration(seawat.nlay,seawat.nrow,seawat.ncol,conc_file)
     ctimes = concObj.get_time_list()
@@ -230,7 +230,7 @@ def main():
     #-- stress period step
     sp_step = 1
     plt_dir = 'png\\results\\seawat\\'
-
+    
     #--for ffmpeg - sequentially numbered
     plt_num = 1
     istart = 0
@@ -269,17 +269,20 @@ def main():
             fig_title = 'stress period '+str(i+1)+' start date '+start.strftime('%d/%m/%Y')
             args = [fig_name,c_seekpoint,conc_lay_idxs,act_lines,act_wells,fig_title]        
             q_args.append(args)
-            plt_num += 1    
+            plt_num += 1   
+            if num_plots != None and i > num_plots:
+                break 
 
 
     jobq = mp.JoinableQueue() 
     
     
     #--for testing
-    #jobq.put_nowait(q_args[0])
-    #jobq.put_nowait(None)
-    #plot_worker(jobq,1,conc_file)
-    #return       
+    if num_plots != None:
+        jobq.put_nowait(q_args[0])
+        jobq.put_nowait(None)
+        plot_worker(jobq,1,conc_file)
+        return       
     
     procs = []
     num_procs = 3
@@ -312,4 +315,4 @@ def main():
         
 
 if __name__ == '__main__':
-    main()
+    main(None)

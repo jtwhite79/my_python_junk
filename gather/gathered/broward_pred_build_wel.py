@@ -6,7 +6,7 @@ from datetime import datetime,timedelta
 import pandas
 import shapefile
 import pestUtil as pu
-from bro import flow,seawat 
+from bro_pred import flow,seawat 
 
 '''for now, we assume seawat and flow have the row col
 '''
@@ -33,12 +33,15 @@ def overlap(interval1,interval2):
         return 0.0
 
 
-
 #--load the pre-processed stress period aligned pumpage
 pump_df = pandas.read_csv('..\\..\\_pumpage\\dataframes\\pws_filled_zeros.csv',index_col=0,parse_dates=True)
-#--some defense
-for well,series in pump_df.iteritems():
-    assert series.shape[0] == flow.nper
+
+well_start,well_end = datetime(year=2009,month=5,day=31),datetime(year=2012,month=5,day=31)
+print 'calculating average monthly pumping for each well for period of ',well_start,well_end
+pump_df = pump_df[well_start:well_end]
+month_avg = pump_df.groupby(lambda x:x.month).mean()
+#for wname,series in month_avg.iteritems():
+#    print wname,series
 
 
 #--load the botm's - for the standard wel package
@@ -110,38 +113,30 @@ num_wells = len(pump_df.keys()) - len(inactive)
 
 f_wel = open(flow.root+'.wel','w',0)
 f_wel.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
-f_wel.write(' {0:9.0f} {1:9.0f} {2}\n'.format(num_wells,53,"NOPRINT"))    
+f_wel.write(' {0:9.0f} {1:9.0f} {2}\n'.format(num_wells,flow.well_unit,"NOPRINT"))    
 
 f_wel2 = open(seawat.root+'.wel','w',0)
 f_wel2.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
-f_wel2.write(' {0:9.0f} {1:9.0f} {2}\n'.format(num_wells,53,"NOPRINT"))    
+f_wel2.write(' {0:9.0f} {1:9.0f} {2}\n'.format(num_wells,seawat.well_unit,"NOPRINT"))    
 
 
-
-#--write the mnw ds 1
-f_mnw = open(flow.root+'.mnw','w',0)
-f_mnw.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
-f_mnw.write(' {0:9.0f} {1:9.0f} {2:9.0f}\n'.format(num_wells,0,0))    
-for line in mnw_ds2:
-    f_mnw.write(line)
-   
 sp_start = flow.sp_start
 sp_len = flow.sp_len
-i = 1
 
 #--for writing the external wel lists
 bnd_prefix = flow.list_dir+'wel_'
 bnd_prefix2 = seawat.list_dir+'wel_'
 
-for start,[end,record] in zip(sp_start,pump_df.iterrows()):       
-    mnw_ds4 = []
+mn_names,mn_names2 = {},{}
+for imonth,record in month_avg.iterrows():
+    bnd_name = bnd_prefix+str(imonth)+'.dat'
+    bnd_name2 = bnd_prefix2+str(imonth)+'.dat'
+    mn_names[imonth] = bnd_name
+    mn_names2[imonth] = bnd_name2
+    
     wel_sp,wel_sp2 = [],[]
     for dep_name,value in zip(record.index,record.values):
-        if dep_name not in inactive:
-            #--only write non-zero values fro mnw
-            if value > 0.0:
-                line_ds4a = '{0:<20s}{1:>20.8e} {2:30s}\n'.format(dep_name,-1.0*value,'#4a')
-                mnw_ds4.append(line_ds4a)
+        if dep_name not in inactive:            
             #--write all values for wel - makes SSM much easier
             for rcl_string in wel_rcl[dep_name]:
                 line_wel = rcl_string + ' {0:20.8E} #{1}\n'.format(-value,dep_name)
@@ -149,18 +144,6 @@ for start,[end,record] in zip(sp_start,pump_df.iterrows()):
             for rcl_string in wel_rcl2[dep_name]:
                 line_wel = rcl_string + ' {0:20.8E} #{1}\n'.format(-value,dep_name)
                 wel_sp2.append(line_wel)
-    
-
-    f_mnw.write('{0:10.0f}'.format(len(mnw_ds4))+'{0:50s}'.format('')+'#3 Stress Period '+str(i+1)+' '+start.strftime('%Y%m%d')+'\n')    
-    for line in mnw_ds4:
-        f_mnw.write(line)
-
-    f_wel.write(' {0:9.0f} {1:9.0f} '.format(len(wel_sp),0)+'  # Stress Period '+str(i+1)+' '+start.strftime('%Y%m%d')+'\n')    
-    f_wel2.write(' {0:9.0f} {1:9.0f} '.format(len(wel_sp),0)+'  # Stress Period '+str(i+1)+' '+start.strftime('%Y%m%d')+'\n')    
-    bnd_name = bnd_prefix+start.strftime('%Y%m%d')+'.dat'
-    bnd_name2 = bnd_prefix2+start.strftime('%Y%m%d')+'.dat'
-    f_wel.write('OPEN/CLOSE '+bnd_name+' \n')
-    f_wel2.write('OPEN/CLOSE '+bnd_name2+' \n')
     f_bnd = open(bnd_name,'w',0)
     for line in wel_sp:
         f_bnd.write(line)
@@ -171,11 +154,24 @@ for start,[end,record] in zip(sp_start,pump_df.iterrows()):
         f_bnd2.write(line)
     f_bnd2.close()
 
+
+sfac_mult = 0.00 #per annum
+for i,start in enumerate(sp_start):       
+        
+    bnd_name,bnd_name2 = mn_names[start.month],mn_names2[start.month]
+    f_wel.write(' {0:9.0f} {1:9.0f} '.format(len(wel_sp),0)+'  # Stress Period '+str(i+1)+' '+start.strftime('%Y%m%d')+'\n')    
+    f_wel2.write(' {0:9.0f} {1:9.0f} '.format(len(wel_sp),0)+'  # Stress Period '+str(i+1)+' '+start.strftime('%Y%m%d')+'\n')        
+    f_wel.write('OPEN/CLOSE '+bnd_name+' \n')
+    f_wel2.write('OPEN/CLOSE '+bnd_name2+' \n')
+    sfac = 1.0 + ((start.year - flow.start.year) * sfac_mult)
+    f_wel.write('SFAC {0:15.6E}\n'.format(sfac))
+    f_wel2.write('SFAC {0:15.6E}\n'.format(sfac))
     i += 1
-f_mnw.close()  
+  
 f_wel.close()      
 f_wel2.close() 
 
         
+
 
 

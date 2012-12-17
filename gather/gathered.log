@@ -14,6 +14,8 @@ prep_chd.py,D:\Users\jwhite\Projects\Broward\seawat_older\model_8layer_seawat\pr
 pro_ch_cells.py_1,D:\Users\jwhite\Projects\Broward\seawat_older\model_8layer_seawat\pro_ch_cells.py
 ref2grd.py,D:\Users\jwhite\Projects\Broward\seawat_older\model_8layer_seawat\ref2grd.py
 ref2grd_single.py,D:\Users\jwhite\Projects\Broward\seawat_older\model_8layer_seawat\ref2grd_single.py
+broward_bcdpep_add_data_2_shape.py,D:\Users\jwhite\Projects\Broward\_BCDPEP\_pyprojects\broward_bcdpep_add_data_2_shape\broward_bcdpep_add_data_2_shape\broward_bcdpep_add_data_2_shape.py
+broward_bcdpep_build_tidal_conc.py,D:\Users\jwhite\Projects\Broward\_BCDPEP\_pyprojects\broward_bcdpep_build_tidal_conc\broward_bcdpep_build_tidal_conc\broward_bcdpep_build_tidal_conc.py
 make_dbkey_query_string.py,D:\Users\jwhite\Projects\Broward\_dbhydro\make_dbkey_query_string.py
 mp_process_tslisting_flex.py,D:\Users\jwhite\Projects\Broward\_dbhydro\mp_process_tslisting_flex.py
 ts_listing_replace_doublequotes.py,D:\Users\jwhite\Projects\Broward\_dbhydro\ts_listing_replace_doublequotes.py
@@ -33,11 +35,11 @@ dbhydro_precip_INST_2_SUM.py,D:\Users\jwhite\Projects\Broward\_dbhydro\_pyprojec
 fix_tslisting.py,D:\Users\jwhite\Projects\Broward\_dbhydro\_pyprojects\fix_tslisting\fix_tslisting\fix_tslisting.py
 repair_dbhydro_names.py,D:\Users\jwhite\Projects\Broward\_dbhydro\_pyprojects\repair_dbhydro_names\repair_dbhydro_names\repair_dbhydro_names.py
 UMD_BND_Fromnetcdf.py,D:\Users\jwhite\Projects\Broward\_eden\UMD_BND_Fromnetcdf.py
-broward_eden_hindcast.py,D:\Users\jwhite\Projects\Broward\_eden\pyprojects\broward_eden_hindcast\broward_eden_hindcast\broward_eden_hindcast.py
-broward_eden_make_ghb_make.py,D:\Users\jwhite\Projects\Broward\_eden\pyprojects\broward_eden_make_ghb_make\broward_eden_make_ghb_make\broward_eden_make_ghb_make.py
-broward_eden_make_pixel_timeseries.py,D:\Users\jwhite\Projects\Broward\_eden\pyprojects\broward_eden_make_pixel_timeseries\broward_eden_make_pixel_timeseries\broward_eden_make_pixel_timeseries.py
-broward_eden_plot_smps.py,D:\Users\jwhite\Projects\Broward\_eden\pyprojects\broward_eden_plot_smps\broward_eden_plot_smps\broward_eden_plot_smps.py
-broward_eden_unzip.py,D:\Users\jwhite\Projects\Broward\_eden\pyprojects\broward_eden_unzip\broward_eden_unzip\broward_eden_unzip.py
+broward_eden_hindcast.py,D:\Users\jwhite\Projects\Broward\_eden\_pyprojects\broward_eden_hindcast\broward_eden_hindcast\broward_eden_hindcast.py
+broward_eden_make_ghb_make.py,D:\Users\jwhite\Projects\Broward\_eden\_pyprojects\broward_eden_make_ghb_make\broward_eden_make_ghb_make\broward_eden_make_ghb_make.py
+broward_eden_make_pixel_timeseries.py,D:\Users\jwhite\Projects\Broward\_eden\_pyprojects\broward_eden_make_pixel_timeseries\broward_eden_make_pixel_timeseries\broward_eden_make_pixel_timeseries.py
+broward_eden_plot_smps.py,D:\Users\jwhite\Projects\Broward\_eden\_pyprojects\broward_eden_plot_smps\broward_eden_plot_smps\broward_eden_plot_smps.py
+broward_eden_unzip.py,D:\Users\jwhite\Projects\Broward\_eden\_pyprojects\broward_eden_unzip\broward_eden_unzip\broward_eden_unzip.py
 broward_ftl_depth_integrate_saltdata.py,D:\Users\jwhite\Projects\Broward\_ftl_salt\pyprojects\broward_ftl_depth_integrate_saltdata\broward_ftl_depth_integrate_saltdata\broward_ftl_depth_integrate_saltdata.py
 broward_ftl_process_saltdata.py,D:\Users\jwhite\Projects\Broward\_ftl_salt\pyprojects\broward_ftl_process_saltdata\broward_ftl_process_saltdata\broward_ftl_process_saltdata.py
 fix_pixel_attribute.py,D:\Users\jwhite\Projects\Broward\_gis\fix_pixel_attribute.py
@@ -106,6 +108,7 @@ broward_model_process_seawat_mp.py,D:\Users\jwhite\Projects\Broward\_model\_pypr
 broward_model_swr_results_to_wel.py,D:\Users\jwhite\Projects\Broward\_model\_pyprojects\broward_model_swr_results_to_wel\broward_model_swr_results_to_wel\broward_model_swr_results_to_wel.py
 broward_model_swr_vs_wel_compare.py,D:\Users\jwhite\Projects\Broward\_model\_pyprojects\broward_model_swr_vs_wel_compare\broward_model_swr_vs_wel_compare\broward_model_swr_vs_wel_compare.py
 broward_model_swr_vs_wel_lst.py,D:\Users\jwhite\Projects\Broward\_model\_pyprojects\broward_model_swr_vs_wel_lst\broward_model_swr_vs_wel_lst\broward_model_swr_vs_wel_lst.py
+broward_model_well_conc.py,D:\Users\jwhite\Projects\Broward\_model\_pyprojects\broward_model_well_conc\broward_model_well_conc\broward_model_well_conc.py
 broward_mode_plot_rchets_timeseries.py,D:\Users\jwhite\Projects\Broward\_model\_pyprojects\broward_mode_plot_rchets_timeseries\broward_mode_plot_rchets_timeseries\broward_mode_plot_rchets_timeseries.py
 broward_process_results_mp.py,D:\Users\jwhite\Projects\Broward\_model\_pyprojects\broward_process_results_mp\broward_process_results_mp\broward_process_results_mp.py
 broward_swi_build_izeta.py,D:\Users\jwhite\Projects\Broward\_model\_pyprojects\broward_swi_build_izeta_isource\broward_swi_build_izeta\broward_swi_build_izeta.py
@@ -132,6 +135,7 @@ ncdc_wetdry.py,D:\Users\jwhite\Projects\Broward\_ncdc\markov\ncdc_wetdry.py
 ncdc_wetdry_date.py,D:\Users\jwhite\Projects\Broward\_ncdc\markov\ncdc_wetdry_date.py
 plot_15day.py,D:\Users\jwhite\Projects\Broward\_ncdc\markov\plot_15day.py
 pro_detrend.py,D:\Users\jwhite\Projects\Broward\_ncdc\markov\pro_detrend.py
+broward_noaa_make_slr_dfs.py,D:\Users\jwhite\Projects\Broward\_noaa\_pyprojects\broward_noaa_make_slr_dfs\broward_noaa_make_slr_dfs\broward_noaa_make_slr_dfs.py
 broward_noaa_plot_timeseries.py,D:\Users\jwhite\Projects\Broward\_noaa\_pyprojects\broward_noaa_plot_timeseries\broward_noaa_plot_timeseries\broward_noaa_plot_timeseries.py
 broward_noaa_process_tide_data.py,D:\Users\jwhite\Projects\Broward\_noaa\_pyprojects\broward_noaa_process_tide_data\broward_noaa_process_tide_data\broward_noaa_process_tide_data.py
 make_broward_nwis_site_shp_csv.py,D:\Users\jwhite\Projects\Broward\_nwis\old\make_broward_nwis_site_shp_csv.py
@@ -163,6 +167,16 @@ check_pilot_point_files.py,D:\Users\jwhite\Projects\Broward\_precip\point_data\c
 rename_arrays.py,D:\Users\jwhite\Projects\Broward\_precip\point_data\rename_arrays.py
 wrap2free.py,D:\Users\jwhite\Projects\Broward\_precip\point_data\wrap2free.py
 wrap2free_mp.py,D:\Users\jwhite\Projects\Broward\_precip\point_data\wrap2free_mp.py
+make_pixel_map.py,D:\Users\jwhite\Projects\Broward\_precip\_python\make_pixel_map\make_pixel_map\make_pixel_map.py
+map_pixels.py,D:\Users\jwhite\Projects\Broward\_precip\_python\map_pixels\map_pixels\map_pixels.py
+bro_pred.py,D:\Users\jwhite\Projects\Broward\_prediction\bro_pred.py
+broward_pred_build_ets.py,D:\Users\jwhite\Projects\Broward\_prediction\_pyprojects\broward_pred_build_ets\broward_pred_build_ets\broward_pred_build_ets.py
+broward_pred_build_flow_model.py,D:\Users\jwhite\Projects\Broward\_prediction\_pyprojects\broward_pred_build_flow_model\broward_pred_build_flow_model\broward_pred_build_flow_model.py
+broward_pred_build_ghbs.py,D:\Users\jwhite\Projects\Broward\_prediction\_pyprojects\broward_pred_build_ghbs\broward_pred_build_ghbs\broward_pred_build_ghbs.py
+broward_pred_build_rch.py,D:\Users\jwhite\Projects\Broward\_prediction\_pyprojects\broward_pred_build_rch\broward_pred_build_rch\broward_pred_build_rch.py
+broward_pred_build_swr.py,D:\Users\jwhite\Projects\Broward\_prediction\_pyprojects\broward_pred_build_swr\broward_pred_build_swr\broward_pred_build_swr.py
+broward_pred_build_wel.py,D:\Users\jwhite\Projects\Broward\_prediction\_pyprojects\broward_pred_build_wel\broward_pred_build_wel\broward_pred_build_wel.py
+broward_pred_get_flow_init.py,D:\Users\jwhite\Projects\Broward\_prediction\_pyprojects\broward_pred_get_flow_init\broward_pred_get_flow_init\broward_pred_get_flow_init.py
 broward_combine_k_shapes.py,D:\Users\jwhite\Projects\Broward\_properties\_pyprojects\broward_combine_k_shapes\broward_combine_k_shapes\broward_combine_k_shapes.py
 broward_K_assign_2_layers.py,D:\Users\jwhite\Projects\Broward\_properties\_pyprojects\broward_K_assign_2_layers\broward_K_assign_2_layers\broward_K_assign_2_layers.py
 broward_K_interpolate_2_grid.py,D:\Users\jwhite\Projects\Broward\_properties\_pyprojects\broward_K_interpolate_2_grid\broward_K_interpolate_2_grid\broward_K_interpolate_2_grid.py
@@ -195,6 +209,7 @@ fix_weir_invert.py,D:\Users\jwhite\Projects\Broward\_swr\older\swr_full\fix_weir
 mod_ds13a.py,D:\Users\jwhite\Projects\Broward\_swr\older\swr_full\mod_ds13a.py
 write_ds13a_shape.py,D:\Users\jwhite\Projects\Broward\_swr\older\swr_full\write_ds13a_shape.py
 write_new_ds12.py,D:\Users\jwhite\Projects\Broward\_swr\older\swr_full\write_new_ds12.py
+broward_swr_build_pred_stage_series.py,D:\Users\jwhite\Projects\Broward\_swr\_pyprojects\broward_swr_build_pred_stage_series\broward_swr_build_pred_stage_series\broward_swr_build_pred_stage_series.py
 broward_swr_build_stage_series.py,D:\Users\jwhite\Projects\Broward\_swr\_pyprojects\broward_swr_build_stage_series\broward_swr_build_stage_series\broward_swr_build_stage_series.py
 broward_swr_check_geometry.py,D:\Users\jwhite\Projects\Broward\_swr\_pyprojects\broward_swr_check_geometry\broward_swr_check_geometry\broward_swr_check_geometry.py
 broward_swr_make_ds13a_shapefile.py,D:\Users\jwhite\Projects\Broward\_swr\_pyprojects\broward_swr_make_ds13a_shapefile\broward_swr_make_ds13a_shapefile\broward_swr_make_ds13a_shapefile.py
@@ -301,6 +316,28 @@ make_stage_bound_swr.py,D:\Users\jwhite\Projects\Broward\_SW_model\shapes\make_s
 plot_array_cmdline.py_3,D:\Users\jwhite\Projects\Broward\_SW_model\shapes\plot_array_cmdline.py
 rebuild_swr_ds10_ds11a.py,D:\Users\jwhite\Projects\Broward\_SW_model\shapes\rebuild_swr_ds10_ds11a.py
 structure_work.py,D:\Users\jwhite\Projects\Broward\_SW_model\shapes\structure_work.py
+add_attribute.py,D:\Users\jwhite\Projects\Tsala\add_attribute.py
+add_cellElev_2_reaches.py,D:\Users\jwhite\Projects\Tsala\add_cellElev_2_reaches.py
+add_pixel_data.py,D:\Users\jwhite\Projects\Tsala\add_pixel_data.py
+buildConn.py_1,D:\Users\jwhite\Projects\Tsala\buildConn.py
+build_swr_datasets.py,D:\Users\jwhite\Projects\Tsala\build_swr_datasets.py
+calc_avg_elev.py,D:\Users\jwhite\Projects\Tsala\calc_avg_elev.py
+calc_avg_elev_mod.py,D:\Users\jwhite\Projects\Tsala\calc_avg_elev_mod.py
+combine_hydrography.py,D:\Users\jwhite\Projects\Tsala\combine_hydrography.py
+make_arrays.py_1,D:\Users\jwhite\Projects\Tsala\make_arrays.py
+make_grid.py_1,D:\Users\jwhite\Projects\Tsala\make_grid.py
+make_grid_2.py,D:\Users\jwhite\Projects\Tsala\make_grid_2.py
+make_grid_centroids.py,D:\Users\jwhite\Projects\Tsala\make_grid_centroids.py
+make_model_files.py,D:\Users\jwhite\Projects\Tsala\make_model_files.py
+make_stage_head_shapes.py_2,D:\Users\jwhite\Projects\Tsala\make_stage_head_shapes.py
+make_top_array.py,D:\Users\jwhite\Projects\Tsala\make_top_array.py
+plot_heads.py,D:\Users\jwhite\Projects\Tsala\plot_heads.py
+update_heads.py,D:\Users\jwhite\Projects\Tsala\update_heads.py
+Tsala_make_nexrad_pixelshape_df.py,D:\Users\jwhite\Projects\Tsala\NEXRAD and PET RET\_pyprojects\Tsala_make_nexrad_pixelshape_df\Tsala_make_nexrad_pixelshape_df\Tsala_make_nexrad_pixelshape_df.py
+Tsala_make_pixel_map.py,D:\Users\jwhite\Projects\Tsala\NEXRAD and PET RET\_pyprojects\Tsala_make_pixel_map\Tsala_make_pixel_map\Tsala_make_pixel_map.py
+Tsala_map_nexrad_2_arrays.py,D:\Users\jwhite\Projects\Tsala\NEXRAD and PET RET\_pyprojects\Tsala_map_nexrad_2_arrays\Tsala_map_nexrad_2_arrays\Tsala_map_nexrad_2_arrays.py
+Tsala_stack_forcing_data.py,D:\Users\jwhite\Projects\Tsala\NEXRAD and PET RET\_pyprojects\Tsala_stack_forcing_data\Tsala_stack_forcing_data\Tsala_stack_forcing_data.py
+make_gslib_unit_thickness.py,D:\Users\jwhite\Projects\Tsala\_hydrostrat\make_gslib_unit_thickness.py
 setup.py,D:\Users\jwhite\python27_installs\xlrd\xlrd-0.8.0\setup.py
 biffh.py,D:\Users\jwhite\python27_installs\xlrd\xlrd-0.8.0\build\lib\xlrd\biffh.py
 book.py,D:\Users\jwhite\python27_installs\xlrd\xlrd-0.8.0\build\lib\xlrd\book.py

@@ -20,6 +20,13 @@ for l in seawat.layer_botm_names:
 
 modelname = seawat.root
 mf = modflow(modelname,external_path=seawat.ref_dir+'mod\\')
+
+#--add additional CBC units
+mf.add_external(seawat.root+'_wel.cbc',seawat.well_unit,binflag=True)
+mf.add_external(seawat.root+'_rch.cbc',seawat.rch_unit,binflag=True)
+mf.add_external(seawat.root+'_ets.cbc',seawat.ets_unit,binflag=True)
+mf.add_external(seawat.root+'_ghb.cbc',seawat.ghb_unit,binflag=True)
+mf.write_name_file()
 perlen = []
 nstp = [1] * seawat.nper
 #nstp = []
@@ -34,7 +41,7 @@ bas = mfbas(mf,ibound=ibound,strt=strt,hnoflo=1.0e+10)
 lpf = mflpf(mf,laytyp=0,hk=4500.0,vka=4500.0)
 gmg = mfgmg(mf,mxiter=100,hclose=0.25,rclose=1000.0)
 
-oc = mfoc(mf,words=['head'],save_head_every=1)
+oc = mfoc(mf,words=['head','budget'],save_head_every=1,compact=True)
 
 #--externally generated...
 ghb = mfaddoutsidefile(mf,'GHB','ghb',125)
@@ -46,6 +53,12 @@ wel = mfaddoutsidefile(mf,'WEL','wel',128)
 
 shutil.copy(flow.root+'.riv',seawat.root+'.riv')
 riv = mfaddoutsidefile(mf,'RIV','riv',124)
+
+#--add additional CBC units
+mf.add_external(seawat.root+'_wel.cbc',seawat.well_unit,binflag=True)
+mf.add_external(seawat.root+'_rch.cbc',seawat.rch_unit,binflag=True)
+mf.add_external(seawat.root+'_ets.cbc',seawat.ets_unit,binflag=True)
+mf.add_external(seawat.root+'_ghb.cbc',seawat.ghb_unit,binflag=True)
 
 #--mt3d
 sconc = []
@@ -62,7 +75,7 @@ for sp in seawat.sp_len:
 timprs = np.cumsum(np.array(timprs))
 
 mt = mt3dms(seawat.root,'nam_mt3d',mf,external_path=seawat.ref_dir+'mod\\')
-btn = mtbtn(mt,ncomp=1,mcomp=0,tunit='DAY',lunit='FEET',munit='KG',prsity=0.2,icbund=icbund,sconc=[sconc],cinact=0.0,thkmin=1.0,\
+btn = mtbtn(mt,ncomp=1,mcomp=0,tunit='DAY',lunit='FEET',munit='KG',prsity=0.2 ,icbund=icbund,sconc=[sconc],cinact=0.0,thkmin=1.0,\
     ifmtcn=0,ifmtnp=0,ifmtrf=0,ifmtdp=0,savucn=True,nprs=-1,chkmas=True,timprs=timprs,dt0=500.0,mxstrn=10000,ttsmult=1.0,ttsmax=0)
 adv = mtadv(mt,mixelm=0,percel=1.0,nadvfd=0)
 dsp = mtdsp(mt,al=0.0,trpt=1.0,trpv=1.0) 

@@ -194,7 +194,7 @@ class modflow(basemodel):
     name = property(basemodel.get_name, set_name) # Property must be redeclared to override basemodels setter method
     def write_name_file(self):
         fn_path = os.path.join(self.model_ws,self.namefile)
-        f_nam = open(fn_path, 'w')
+        f_nam = open(fn_path, 'w',0)
         f_nam.write('%s\n' % (self.heading) )
         if self.version == 'mf2k':
             f_nam.write('%s %3i %s\n' % (self.glo.name[0], self.glo.unit_number[0], self.glo.file_name[0]))

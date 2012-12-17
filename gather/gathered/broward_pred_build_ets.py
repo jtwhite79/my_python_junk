@@ -3,7 +3,7 @@ import sys
 from datetime import datetime,timedelta
 import multiprocessing as mp
 import numpy as np
-from bro import flow
+from bro_pred import flow
 
 def worker(jobq,pid):
     #--args[0] = output_filename
@@ -14,18 +14,19 @@ def worker(jobq,pid):
         if args == None:
             break        
         astats = []
-        tot = np.loadtxt(args[1][0])
-        for aname in args[1][1:]:
-            a = np.loadtxt(aname)            
+        tot = np.zeros((flow.nrow,flow.ncol))
+        for aname in args[1]:            
+            a = np.fromfile(aname,dtype=np.float32)
+            a.resize(flow.nrow,flow.ncol)      
             tot += a
-        print '----'+args[0] 
-        tot /= float(len(args[1]))                  
-        tot = tot.astype(np.float32)        
-        #np.savetxt(args[0]+'.ascii',tot,fmt='%15.6e')               
+        print '----'+args[0]                   
+        tot /= float(len(args[1]))              
+        tot = tot.astype(np.float32)
         tot.tofile(args[0])
         jobq.task_done()        
     jobq.task_done()
     return        
+
 
 
 def get_lu_year(dt,dt_list):
@@ -48,7 +49,7 @@ def write_sp(f,sp_str,etss,etsr,etsx,pxdp1,petm1,pxdp2,petm2):
     if etsr:
         #assert os.path.exists(etsr),'cant find '+etsr
         inestr = 1
-    if etsx:
+    if etsx:    
         assert os.path.exists(etsx),'cant find '+etsx
         inetsx = 1
     if pxdp1 and pxdp2 and petm1 and petm2:
@@ -76,28 +77,49 @@ def write_sp(f,sp_str,etss,etsr,etsx,pxdp1,petm1,pxdp2,petm2):
 def main():
 
     
-    ret_dir = '..\\..\\_pet\\goes\\ret_mm_day\\'
-    daily_avg_dir = '..\\..\\_pet\\summary_stats\\goes_summary_stats\\'
-    print 'casting daily avg files'
-    daily_avg_files = os.listdir(daily_avg_dir)
-    ret_avg_files,ret_avg_dt = [],[]
-    for dfile in daily_avg_files:
-        #print 'processing file',dfile,'\r',
-        if dfile.startswith('ret') and dfile.split('.')[0].endswith('avg'):
-            dfile1 = dfile.split('.')[0]
-            #dt = datetime.strptime(dfile1,'nx_%b_%d')
-            ret_avg_files.append(dfile)
-            #ret_avg_dt.append(dt.timetuple()[7])
-            ret_avg_dt.append(int(dfile.split('_')[2]))
-
-    print 'casting ret files'
+    ret_dir = '..\\..\\_model\\bro.02\\flowref\\ets\\'
+    print 'casting ret filenames and writing average monthly arrays'
     ret_files = os.listdir(ret_dir)
     ret_dt = []
-    for nfile in ret_files:
-        #print 'processing file',dfile,'\r',
-        dt = datetime.strptime(nfile.split('.')[0],'ret%Y%m%d')
-        ret_dt.append(dt)
-        
+    ret_monthly = {}
+    for rfile in ret_files:
+        dt = datetime.strptime(rfile.split('.')[0].split('_')[-1],'%Y%m%d')
+        if dt.month in ret_monthly:
+            ret_monthly[dt.month].append(ret_dir+rfile)
+        else:
+            ret_monthly[dt.month] = [ret_dir+rfile]
+    aprefix = flow.ref_dir+'ets\\ets_'
+    monthly_names = {}    
+    q_args = []
+    for imonth,rfiles in ret_monthly.iteritems():
+        aname = aprefix+str(imonth)+'.ref'
+        monthly_names[imonth] = aname
+        q_args.append([aname,rfiles])
+
+    #--use multiprocessing to speed things up
+    jobq = mp.JoinableQueue()  
+    procs = []
+    num_procs = 4
+    
+    for i in range(num_procs):
+        #--pass the woker function both queues and a PID
+        p = mp.Process(target=worker,args=(jobq,i))
+        p.daemon = True
+        print 'starting process',p.name
+        p.start()
+        procs.append(p)
+    
+    for q in q_args:
+        jobq.put(q)
+
+    for p in procs:
+        jobq.put(None)      
+
+    #--block until all finish
+    for p in procs:
+        p.join() 
+        print p.name,'Finished'   
+                
     f = open(flow.root+'.ets','w',0)
     f.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
     f.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.0f}\n'.format(3,flow.ets_unit,0,3))
@@ -111,8 +133,7 @@ def main():
         dt = datetime(year=year,month=1,day=1)
         if dt not in lu_dts:
             lu_dts.append(dt)
-    lu_dts.sort()  
-    
+                
     print 'processing stress periods'
     out_dir = flow.ref_dir+'ets\\ets_'    
     i = 1
@@ -125,12 +146,10 @@ def main():
         #--hard coding alert -- assuming stress periods are 1 month or shorter
         if (start + splen - timedelta(days=1)).month != start.month:
             raise IndexError('Stress period longer than days in month - need to update crop coeff arrays')
-        outname = out_dir+str(i)+'_'+start.strftime('%Y%m%d')+'.ref'
+        outname = monthly_names[start.month]
         etsx,pxdp1,pxdp2 = None,None,None
         petm1,petm2 = None,None
-        etsr,etss = outname,None
-        if start.year==1958:
-            pass
+        etsr,etss = outname,None        
         yr = get_lu_year(start,lu_dts)
         mn = start.month
              
@@ -154,48 +173,10 @@ def main():
         sp_str = '#stress period '+str(i)+' '+str(start)
         
         write_sp(f,sp_str,etss,etsr,etsx,pxdp1,petm1,pxdp2,petm2)
-        
-        #files2load = []
-        #day = start
-        #while day < start+splen:
-        #    if day in ret_dt:
-        #        files2load.append(ret_dir+ret_files[ret_dt.index(day)])
-        #    else:
-        #        jd = day.timetuple()[7]
-        #        files2load.append(daily_avg_dir+ret_avg_files[ret_avg_dt.index(jd)])
-        #    day += timedelta(days=1)
-
-        #assert len(files2load) == splen.days
-        #
-        #q_args.append([outname,files2load])        
-        
-        
-        i += 1
-    
-    f.close()    
-    return
-    jobq = mp.JoinableQueue()  
-    procs = []
-    num_procs = 4
-    for i in range(num_procs):
-        #--pass the woker function both queues and a PID
-        p = mp.Process(target=worker,args=(jobq,i))
-        p.daemon = True
-        print 'starting process',p.name
-        p.start()
-        procs.append(p)
-    
-    for q in q_args:
-        jobq.put(q)
-
-    for p in procs:
-        jobq.put(None)      
-
-    #--block until all finish
-    for p in procs:
-        p.join() 
-        print p.name,'Finished'    
+        i += 1 
+    f.close()        
 
 
 if __name__ == '__main__':                                                           
     main()   
+

@@ -14,8 +14,8 @@ class bro:
     rch_unit,ets_unit = 54,55
     well_unit,ghb_unit = 56,57
 
-    start = datetime(year=1950,month=1,day=1)
-    end = datetime(year=2012,month=5,day=31)
+    start = datetime(year=2012,month=6,day=1)
+    end = datetime(year=2112,month=5,day=31)
     pandas_freq = '1M'
     sp_end = pandas.date_range(start,end,freq=pandas_freq)
     sp_start = [start]
@@ -29,14 +29,7 @@ class bro:
     assert len(sp_start) == len(sp_end)
     assert len(sp_len) == len(sp_end)
     nper = len(sp_start)
-    
-    #--for sampling the water level data: +/- 7 days of the end of the sp
-    obs_offset = timedelta(days=7)
-    obs_start,obs_end = [],[]
-    for sp_s,sp_e,sp_l in zip(sp_start,sp_end,sp_len):       
-        obs_start.append(sp_e - obs_offset)
-        obs_end.append(sp_e + obs_offset)
-   
+    slr_scenario = 'med_rise'    
    
 
 class flow(bro):    
@@ -57,8 +50,8 @@ class flow(bro):
     #layer_botm_names = ['Q3','Q1','T1']
     layer_botm_names = ['T1']
     nlay = len(layer_botm_names)
+    
     ghb_layers = [1]
-    #ghb_layers = {2:[1],5:[1],32:[1],33:[1],34:[1],35:[1],40:[1]
     
     delr,delc = 500.0,500.0
     #offset = [728600.0,782850.0]
@@ -70,7 +63,6 @@ class flow(bro):
     X,Y = np.meshgrid(x,y)
     plt_x = [825000.0,x.max()]
     plt_y = [offset[1],712000.0]
-
 
 class seawat(bro):
     root = 'seawat'
@@ -93,7 +85,7 @@ class seawat(bro):
     #layer_botm_names = ['T1']
     nlay = len(layer_botm_names)
     ghb_layers = [1,2,3,4,5,6]
-    #ghb_layers = {2:[1,2,3,4,5,6],5:[1],32:[1,2,3,4,5,6],33:[1,2,3,4,5,6],34:[1,2,3,4,5,6],35:[1,2,3,4,5,6],40:[1,2,3,4,5,6]}
+    
     delr,delc = 500.0,500.0
     #offset = [728600.0,782850.0]
     offset = [728600.0,577350.0]

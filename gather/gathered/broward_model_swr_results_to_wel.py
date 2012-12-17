@@ -86,13 +86,13 @@ f_wel_seawat = open(seawat.root+'_swr.wel','w',0)
 f_wel_seawat.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
 f_wel_seawat.write('# combined pumpage and swr qbflow\n')
 #--write a guess of mxact
-f_wel_seawat.write(' {0:9.0f} {1:9.0f} {2}\n'.format(20000,0,'NOPRINT'))
+f_wel_seawat.write(' {0:9.0f} {1:9.0f} {2}\n'.format(20000,seawat.well_unit,'NOPRINT'))
 
 f_wel_flow = open(flow.root+'_swr.wel','w',0)
 f_wel_flow.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
 f_wel_flow.write('# combined pumpage and swr qbflow\n')
 #--write a guess of mxact
-f_wel_flow.write(' {0:9.0f} {1:9.0f} {2}\n'.format(20000,0,'NOPRINT'))
+f_wel_flow.write(' {0:9.0f} {1:9.0f} {2}\n'.format(20000,flow.well_unit,'NOPRINT'))
 
 tot_vol_record = []
 kper = 1

@@ -592,12 +592,15 @@ class MODFLOW_Head(MFReadBinaryStatements,MF_Discretization):
 
 class MODFLOW_CBB(MFReadBinaryStatements,MF_Discretization):
     'Reads binary cell by cell output from MODFLOW cbb file'
-    def __init__(self,nlay,nrow,ncol,filename):
+    'aslist only applies for list-type compact budget files'
+
+    def __init__(self,nlay,nrow,ncol,filename,aslist=False):
         #initialize grid information
         self.assign_rowcollay(nlay,nrow,ncol)
         self.flux = numpy.empty((self.nlay, self.nrow, self.ncol))
         #open binary head file
         self.file=open(filename,'rb')
+        self.aslist = aslist
  
     def get_time_list(self,fluxtype):
         self.times = self.time_list(fluxtype)
@@ -638,20 +641,33 @@ class MODFLOW_CBB(MFReadBinaryStatements,MF_Discretization):
         if (ubdsvtype == 3):
             il = self.read_2dintegerarray()
             hl = self.read_2drealarray()
-        if (ubdsvtype == 5):
+        if (ubdsvtype == 5):            
             naux = 1 - self.read_integer()
             if (naux > 0):
                 for i in range(naux):
                     dummy=self.read_text()
             nlist = self.read_integer()
-            for i in range(nlist):
-                icrl=self.read_integer()
-                Q=self.read_real()
-                k,i,j=kij_from_icrl(icrl,nlay,nrow,ncol)
-                temp[k-1,i-1,j-1] = temp[k-1,i-1,j-1] + Q
-                if (naux > 0):
-                    for j in range(naux):
-                        val[j]=self.read_real()
+            if self.aslist:
+                kijs,Qs = [],[]
+                for i in range(nlist):
+                    icrl=self.read_integer()
+                    Q=self.read_real()
+                    k,i,j=kij_from_icrl(icrl,nlay,nrow,ncol)
+                    kijs.append((k,i,j))
+                    Qs.append(Q)
+                    if (naux > 0):
+                        for j in range(naux):
+                            val[j]=self.read_real()
+                temp = [kijs,Qs]
+            else:
+                for i in range(nlist):
+                    icrl=self.read_integer()
+                    Q=self.read_real()
+                    k,i,j=kij_from_icrl(icrl,nlay,nrow,ncol)
+                    temp[k-1,i-1,j-1] = temp[k-1,i-1,j-1] + Q
+                    if (naux > 0):
+                        for j in range(naux):
+                            val[j]=self.read_real()
         self.flux=temp
         return
 
@@ -669,7 +685,7 @@ class MODFLOW_CBB(MFReadBinaryStatements,MF_Discretization):
 #            text,totim,kstp,kper,success=self.read_next_cbb()
             text,totim,kstp,kper,success=self.next()
             #print text,totim,kstp,kper
-            if (success):
+            if (success):                
             	if (string.strip(string.ljust(text,16)) == string.strip(string.ljust(fluxtype,16))):
 #				if (cmp(string.strip(string.ljust(text,16)),\
 #				string.strip(string.ljust(fluxtype,16)))) == 0:

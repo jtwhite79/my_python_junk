@@ -8,7 +8,7 @@ nwis_shapename = '..\\..\\_gis\\scratch\\broward_nwis_sites_reclen_gw'
 grid_shapename = '..\\..\\_gis\\shapes\\broward_grid_master'
 
 print 'loading pandas dataframe to get site numbers'
-df = pandas.read_csv('..\\..\\_nwis\\ghb_NS_stages_model.csv',index_col=0)
+df = pandas.read_csv('..\\..\\_nwis\\dataframes\\ghb_NS_stages_model.csv',index_col=0)
 sites = df.keys()
 
 
@@ -49,7 +49,7 @@ print 'done'
 print 'calculating interpolation factors...'
 num_pts = 4
 
-f = open('..\\ghb_NS_factors.dat','w')
+f = open('ghb_NS_factors.dat','w')
 f.write('row,col,numpts')
 for n in range(num_pts):
     f.write(',pt_'+str(n)+'_name,pt_'+str(n)+'_fac')
