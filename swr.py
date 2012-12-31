@@ -869,6 +869,7 @@ class ds_10():
         if dt not in self.entries.keys():
             return 0,None
         else:
+ 
             self.write(dt,fname) 
             nentries = len(self.entries[dt])           
             return nentries,'#DATASET 10 - IGEONUMR\nOPEN/CLOSE  ' + fname + '\n'
@@ -895,7 +896,8 @@ class ds_11():
         if dt not in self.entries.keys():
             return 0,None
         else:
-            self.write(dt,fname)                        
+            if self.entries[dt] != None:
+                self.write(dt,fname)                        
             return 1,'#DATASET 11 - IGEONUM\nOPEN/CLOSE  ' + fname + '\n'
 
     def write(self,dt,filename):

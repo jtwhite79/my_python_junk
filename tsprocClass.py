@@ -131,11 +131,12 @@ class tsproc(base_block):
     #-----------------------------------
     #--general class methods
     def __init__(self,tsproc_file,out_file='tsproc.out',out_fmt='short',\
-                 instances=[]):       
+                 instances=[],context=PEST_CONTEXT):       
         self.tsproc_file = tsproc_file
         self.out_file = out_file 
         self.out_fmt = out_fmt
-       
+        self.context = context
+               
         #--a list of block objects
         self.blocks = []
         #--a list of block ids
@@ -219,7 +220,9 @@ class tsproc(base_block):
                 contexts.append(block.context)
         return contexts
     
-    
+    def set_context(self,context):
+        self.context = context
+
     def get_block_index(self,name):
         for b_idx in range(self.num_blocks()):
             if self.blocks[b_idx].name == name:
@@ -301,21 +304,29 @@ class tsproc(base_block):
     #-----------------------------------
     #--load series blocks 
     #--add an 'or' block_operation   
-    def get_series_ssf(self,obs_list,ssf_file,context='all',prefix='',\
+    def get_series_ssf(self,site_list,ssf_file,context='all',prefix='',\
                        block_operation='get_series_ssf',role='intermediate',\
-                       wght=None,max_min=None):        
+                       wght=None,max_min=None,series_list=None):        
         
         suffix = 'or'
+        if series_list == None:
+            series_list = []
+            for site in site_list:
+                series_list.append(prefix+site+suffix)
+        else:
+            assert len(site_list) == len(series_list)
+        
+
         this_item_keys = ['FILE','SITE','NEW_SERIES_NAME']
         new_blocks = []
-        for o in obs_list:
-            name = prefix + o + suffix
-            self.check_name(o)                            
-            this_item_values = [ssf_file,o,name]           
+        for site,series_name in zip(site_list,series_list):                       
+            self.check_name(series_name)                            
+            this_item_values = [ssf_file,site,series_name]           
             this_block = base_block('GET_SERIES_SSF',context,\
-                                         name,SERIES,this_item_keys,\
+                                         series_name,SERIES,this_item_keys,\
                                          this_item_values,role,wght=wght,
                                          max_min=max_min)
+
             self.blocks.append(this_block)
             new_blocks.append(this_block)
             self.block_operations.append([block_operation])
@@ -816,7 +827,7 @@ class tsproc(base_block):
         suffix = 'ac'
         accum_block = existing_blocks[0]  
         if final_series_name == None:                                     
-            final_series_name = accum_block.name + suffix                 
+            final_series_name = accum_block.name[:-2] + suffix                 
         #print final_series_name
         self.check_name(final_series_name)
         
@@ -1079,15 +1090,16 @@ class tsproc(base_block):
                 
     def write_settings(self):
         self.f_obj.write('\nSTART SETTINGS\n')
-        contexts = self.get_contexts()
-        if len(contexts) > 1:
-            for context in contexts:
-                if context == PEST_CONTEXT:
-                    self.f_obj.write(' CONTEXT '+context+'\n')
-                else:
-                    self.f_obj.write('#CONTEXT '+context+'\n')    
-        else:
-             self.f_obj.write(' CONTEXT '+contexts[0]+'\n')    
+        #contexts = self.get_contexts()
+        #if len(contexts) > 1:
+        #    for context in contexts:
+        #        if context == PEST_CONTEXT:
+        #            self.f_obj.write(' CONTEXT '+context+'\n')
+        #        else:
+        #            self.f_obj.write('#CONTEXT '+context+'\n')    
+        #else:
+        #     self.f_obj.write(' CONTEXT '+contexts[0]+'\n')    
+        self.f_obj.write(' CONTEXT '+self.context+'\n')    
         if DATE_FMT == '%d/%m/%Y':
             dfmt = 'dd/mm/yyyy'
         elif DATE_FMT == '%m/%d/%Y':            
@@ -1152,12 +1164,12 @@ class tsproc(base_block):
     #--write pest
     def write_pest(self,tpl_file_list,mod_file_list,obs_blocks,mod_blocks,\
                    svd=False,parms=None,parm_grp=None,context=PEST_CONTEXT,\
-                   role='None',global_maxmin=None):
+                   role='None',global_maxmin=None,model_cmd='model.bat'):
         
         #--some defense
         final_blocks = self.get_blocks(role='final')        
-        for m in mod_blocks:
-            assert m in final_blocks, 'block not in final blocks: '+str(m)                    
+        #for m in mod_blocks:
+        #    assert m in final_blocks, 'block not in final blocks: '+str(m)                    
         assert len(tpl_file_list) == len(mod_file_list)
         assert len(obs_blocks) == len(mod_blocks)          
         for tpl in tpl_file_list:
@@ -1173,10 +1185,10 @@ class tsproc(base_block):
         this_item_keys.append('NEW_INSTRUCTION_FILE')
         this_item_values.append('tsproc.ins')
         this_item_keys.append('MODEL_COMMAND_LINE')
-        this_item_values.append('model.bat')
+        this_item_values.append(model_cmd)
         if svd:
             this_item_keys.append('TRUNCATED_SVD')
-            this_item_values.append('1.0e-4')
+            this_item_values.append('1.0e-3')
         if parms:
             this_item_keys.append('PARAMETER_DATA_FILE')
             this_item_values.append(parms)
