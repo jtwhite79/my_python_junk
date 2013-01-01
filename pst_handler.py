@@ -58,6 +58,7 @@ class entry():
                 raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
         else:
             raise Exception('unsupported dtype: '+str(self.dtype))
+
                                               
 
 class pst():
@@ -125,7 +126,8 @@ class pst():
                             e = entry(None,dtype=DTYPES[r],name=r.lower())
                             entries[r] = e
                         else:
-                            print 'warning',r,'not found in DTYPES'
+                            #print 'warning',r,'not found in DTYPES'
+                            pass
                         pst_list[-1].append(r)                    
                 else:
                     rep = True                                                                        
@@ -221,7 +223,6 @@ class pst():
         f = open(filename,'r')
         #--read the pcf line
         f.readline()
-         #--counters for position in the file and in the pst_list,rep_list
         l_count,p_count = 1,1
         while True:
             line = f.readline().strip()
@@ -231,8 +232,6 @@ class pst():
             elif '*' in line:            
                 self.needed[line] = True
                 p_count += 1
-                #p_list = self.section_structure[line]['parameters']
-                #rq_list = self.section_structure[line]['required']
                 rep = self.structure[line]['repeatable']
                 if not rep:
                     self.read_pst_section(f,line)
@@ -243,13 +242,11 @@ class pst():
 
     def __to_attrs(self):
         for key,record in self.sections.iteritems():
-            #attr_base = self.control_2_attr(key)
-            #print attr_base
-            #setattr(self,attr_base,record)
+            attr_base = self.control_2_attr(key)
+            setattr(self,attr_base,record)
             for ename,entry in record.iteritems():                               
                 #attr = attr_base+'.'+ename.lower()
                 attr = ename.lower()
-                print attr
                 setattr(self,attr,entry)
         self.sections = None
 
@@ -263,27 +260,28 @@ class pst():
             if self.needed[sname]:
                 f.write(sname+'\n')
                 structure = self.structure[sname]
-                section = getattr(self,self.control_2_attr(sname))
+                #section = getattr(self,self.control_2_attr(sname))
                 #--iterate over each line
                 rep = structure['repeatable']
                 if not rep:
                     for plist,rqlist in zip(structure['parameters'],structure['required']):
                         for p in plist:
-                            if section[p].value != None:
-                                f.write(section[p].string)  
+                            if hasattr(self,p.lower()):
+                                attr = getattr(self,p.lower())
+                                if attr.value != None:
+                                    f.write(attr.string)  
                         f.write('\n')    
                 else:
-                    keys = section.keys()
+                    attr = getattr(self,self.control_2_attr(sname))
+                    keys = attr.keys()
                     dtypes,fmts = {},{}
                     for k in keys:
                         dtypes[k] = DTYPES[k]
                         fmts[k] = FMT[DTYPES[k]]
-                    for idx,rec in section.iterrows():
+                    for idx,rec in attr.iterrows():
                         for plist,rqlist in zip(structure['parameters'],structure['required']):
                             for p in plist:
                                 if p in keys:
-                                    #print rec[p],fmts[p].format(rec[p])
-                                    #pass
                                     f.write(fmts[p].format(rec[p]))
                         f.write('\n')
         f.close()
@@ -296,17 +294,80 @@ class pst():
 #----------------------------------------------------------
 #--some very basic logic
 #----------------------------------------------------------
-    def update(self):
-        self.update_parameter_info()
-        self.update_observation_info()
-        self.update_prior_info()
+    def update(self,bottomup=True):
+        self.update_parameter_info(bottomup)
+        self.update_observation_info(bottomup)
+        #self.update_prior_info()
 
-    def update_parameter_info(self):
-        npar = self.parameter_data.shape[0]
-        unique_groups = self.parameter_data['pargrpnme'].unique()
 
+    def update_observation_info(self,bottomup):
+        unique_groups = self.observation_data['OBGNME'].unique()
+        for i,ug in enumerate(unique_groups):
+            unique_groups[i] = ug.upper()
+        existing_groups = self.observation_groups['OBGNME'].values
+        for i,eg in enumerate(existing_groups):
+            existing_groups[i] = eg.upper()
+        if not bottomup:
+            for ug in unique_groups:
+                if ug not in existing_groups:
+                    sel = []
+                    for val in self.observation_data['OBGNME'].values:
+                        if val == ug.lower():
+                            sel.append(False)
+                        else:
+                            sel.append(True)
+                    self.observation_data = self.observation_data[sel]  
+                    self.observation_data.dropna()              
+        #--look for groups that are not included, to remove
+        else:
+            for eg in existing_groups:
+                sel = []
+                if eg not in unique_groups:
+                    for val in self.observation_groups['OBGNME'].values:
+                        if val == ug.lower():
+                            sel.append(False)
+                        else:
+                            sel.append(True)        
+                        self.observation_groups = self.observation_groups[sel]
+                        self.observation_groups.dropna()
+        self.nobs.set_value(self.observation_data.shape[0])
+        self.nobsgp.set_value(self.observation_groups.shape[0])
         
 
+    def update_parameter_info(self,bottomup):
+        unique_groups = self.parameter_data['pargp'.upper()].unique()
+        for i,ug in enumerate(unique_groups):
+            unique_groups[i] = ug.upper()
+        existing_groups = self.parameter_groups['PARGPNME'].values
+        for i,eg in enumerate(existing_groups):
+            existing_groups[i] = eg.upper()
+        if not bottomup:
+            for ug in unique_groups:
+                if ug not in existing_groups:
+                    sel = []
+                    for val in self.parameter_data['PARGP'].values:
+                        if val == ug.lower():
+                            sel.append(False)
+                        else:
+                            sel.append(True)
+                    self.parameter_data = self.parameter_data[sel]  
+                    self.parameter_data.dropna()              
+        #--look for groups that are not included, to remove
+        else:
+            for eg in existing_groups:
+                sel = []
+                if eg not in unique_groups:
+                    for val in self.parameter_groups['PARGPNME'].values:
+                        if val == ug.lower():
+                            sel.append(False)
+                        else:
+                            sel.append(True)        
+                        self.parameter_groups = self.parameter_groups[sel]
+                        self.parameter_groups.dropna()
+        self.npar.set_value(self.parameter_data.shape[0])
+        self.npargp.set_value(self.parameter_groups.shape[0])
+        self.maxsing.set_value(self.parameter_data.shape[0])
+                    
 
 #--global stuff
 
