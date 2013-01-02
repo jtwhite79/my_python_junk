@@ -1,382 +1,12 @@
 import numpy as np
 import pandas
-
-
-
-
-
-
-class entry():
-    def __init__(self,value=None,dtype=None,required=True,name=None):                
-        self.__value = value
-        if dtype == None:
-            dtype = type(value)
-        self.dtype = dtype
-        self.name = name
-        self.required = required
-        #self.acceptable_dtype = [np.int,np.float32,str]
-        #if dtype not in self.acceptable_dtypes:
-        #    raise Exception('unacceptable dtype: '+str(dtype)+' for entry: '+str(name))
-       
-    @property
-    def value(self):
-        return self.__value
-
-    @property
-    def string(self):
-        #if self.dtype == I:
-        #    return I.format(self.__value)
-        #elif self.dtype == F:
-        #    return F_FMT.format(self.__value)
-        #else:
-        #    return S_FMT.format(self.__value)        
-        return FMT[self.dtype].format(self.__value)
-
-    def __eq__(self,other):        
-        if self.__value == other:
-            return True
-        else:
-            return False
-    def __repr__(self):
-        return str(self.name) + ': '+self.string    
- 
-    def set_value(self,value):
-        if self.dtype == I:
-            try:
-                self.__value = np.int(value)
-            except:
-                raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
-        elif self.dtype == F:
-            try:
-                self.__value = np.float(value)
-            except:
-                raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
-        elif self.dtype == S:
-            try:
-                self.__value = str(value)
-            except:
-                raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
-        else:
-            raise Exception('unsupported dtype: '+str(self.dtype))
-
-                                              
-
-class pst():
-    def __init__(self):
-        self.build_pst_structure()
-
-#----------------------------------------------------------
-#--IO stuff
-#----------------------------------------------------------   
-    def build_pst_structure(self):       
-        '''load the text pst structure
-        into nested lists for output structure
-        Also builds the required list by looking
-        for '[' and ']' and builds the repeatable entry list
-        by keying on the '(' and ')'
-
-        special treatment of the tied parameter mess
-
-        '''        
-        #--nested list of parameter names
-        pst_list = []
-        #--nested list of bools for required pars
-        req_list = []                       
-        #--list of bools for repeatable entries (pars,obs,etc)
-        #--one entry for each section    
-        rep = False
-        section_dict = {}
-        section_entries = {}
-        section_order = []
-        #--parse and build
-        lines = PST_BASE.split('\n')
-        l_count = 0
-        last = 'pcf'
-        entries = {}
-        for line in lines:        
-            line = line.strip()
-            #--if this is a control marker, then set req as False
-            if line.startswith('*'):                           
-                section_dict[last] = {'parameters':pst_list,'required':req_list,'repeatable':rep}
-                section_entries[last] = entries
-                section_order.append(line)
-                last = line 
-                pst_list = []
-                req_list = []
-                entries = {}
-                rep = False
-            #--otherwise
-            else:
-                
-                if '(' not in line:
-                    pst_list.append([])
-                    req_list.append([])
-                    rep = False
-                    raw = line.strip().split()              
-                    rq = True
-                    for i,r in enumerate(raw):
-                        if r.startswith('['):
-                            rq = False                                    
-                        req_list[-1].append(rq)
-                        if r.endswith(']'):
-                            rq = True                    
-                        r = r.replace('[','')
-                        r = r.replace(']','')
-                        if r in DTYPES.keys():
-                            e = entry(None,dtype=DTYPES[r],name=r.lower())
-                            entries[r] = e
-                        else:
-                            #print 'warning',r,'not found in DTYPES'
-                            pass
-                        pst_list[-1].append(r)                    
-                else:
-                    rep = True                                                                        
-            l_count += 1 
-            
-        
-        section_dict[last] = {'parameters':pst_list,'required':req_list,'repeatable':rep}
-        section_entries[last] = entries                         
-        #--set a needed flag for each section
-        section_needed = {}
-        for key in section_dict.keys():
-            section_needed[key] = False
-        self.structure = section_dict
-        self.needed = section_needed
-        self.sections = section_entries
-        self.section_order = section_order
-        return
-
-    def parse_line(self,line,section_marker):
-        if 'PRIOR' in section_marker.upper():
-            raw = line.strip().split()
-            new_line = [raw[0],' '.join(raw[1:-2]),raw[-2],raw[-1]]
-            return new_line
-        else:
-            return line.strip().split()
-
-    def read_pst_section(self,f,section_marker):
-        '''read a non-repeatable section - set the entry instance values
-        '''
-        l_count = 0
-        params = self.structure[section_marker]['parameters']
-        while True:
-            line_start_pointer = f.tell()
-            line = f.readline().strip()
-            if line == '':
-                break
-            elif line.startswith('*'):
-                f.seek(line_start_pointer)
-                return       
-            raw = self.parse_line(line,section_marker)
-            for r,p in zip(raw,params[l_count]):                                  
-               self.sections[section_marker][p].set_value(r)              
-            l_count += 1                                                
-                             
-    def read_pst_repeatable_section(self,f,section_marker):
-        '''read a repeatable section - build pandas dataframes
-        '''
-        #--create a dict structure to store the entries
-        params = self.structure[section_marker]['parameters'][0]        
-        records = {}
-        for key in params:
-            records[key] = []
-        while True:
-            line_start_pointer = f.tell()
-            line = f.readline().strip()
-            if line == '':
-                break
-            elif line.startswith('*'):
-                f.seek(line_start_pointer)
-                break  
-            raw = self.parse_line(line,section_marker)
-            for p,r in zip(params,raw):
-                records[p].append(r)
-
-        #--set the missing entries as NaNs 
-        mx = 0
-        for key,rec in records.iteritems():
-            if len(rec) == 0:
-                records[key] = np.NaN                
-            if mx < len(rec):
-                mx = len(rec)
-        if mx == 0 :
-            raise Exception('zero-length repeatable section: '+str(section_marker))
-        elif mx == 1:
-            index = [0]
-            df = pandas.DataFrame(records,index=index)
-        else:
-            df = pandas.DataFrame(records) 
-                      
-        #--set the numeric dataframe column types
-        for key in df.keys():
-            if key in DTYPES and DTYPES[key] in [I,F]:
-                df[key] = df[key].astype(DTYPES[key])        
-        for key,series in df.iteritems():
-            if len(series.dropna()) == 0:
-                df.pop(key)
-        self.sections[section_marker] = df
-        return
-                
-    def read_pst(self,filename):
-        '''read an existing PST file
-        '''
-        f = open(filename,'r')
-        #--read the pcf line
-        f.readline()
-        l_count,p_count = 1,1
-        while True:
-            line = f.readline().strip()
-            if line == '':
-                break
-            #--if this is the start of a section     
-            elif '*' in line:            
-                self.needed[line] = True
-                p_count += 1
-                rep = self.structure[line]['repeatable']
-                if not rep:
-                    self.read_pst_section(f,line)
-                else:
-                    df = self.read_pst_repeatable_section(f,line)                                                                                                                  
-        self.__to_attrs()
-        f.close()
-
-    def __to_attrs(self):
-        for key,record in self.sections.iteritems():
-            attr_base = self.control_2_attr(key)
-            setattr(self,attr_base,record)
-            for ename,entry in record.iteritems():                               
-                #attr = attr_base+'.'+ename.lower()
-                attr = ename.lower()
-                setattr(self,attr,entry)
-        self.sections = None
-
-
-
-
-    def write_pst(self,filename):
-        f = open(filename,'w',0)
-        f.write('pcf\n')
-        for sname in self.section_order:
-            if self.needed[sname]:
-                f.write(sname+'\n')
-                structure = self.structure[sname]
-                #section = getattr(self,self.control_2_attr(sname))
-                #--iterate over each line
-                rep = structure['repeatable']
-                if not rep:
-                    for plist,rqlist in zip(structure['parameters'],structure['required']):
-                        for p in plist:
-                            if hasattr(self,p.lower()):
-                                attr = getattr(self,p.lower())
-                                if attr.value != None:
-                                    f.write(attr.string)  
-                        f.write('\n')    
-                else:
-                    attr = getattr(self,self.control_2_attr(sname))
-                    keys = attr.keys()
-                    dtypes,fmts = {},{}
-                    for k in keys:
-                        dtypes[k] = DTYPES[k]
-                        fmts[k] = FMT[DTYPES[k]]
-                    for idx,rec in attr.iterrows():
-                        for plist,rqlist in zip(structure['parameters'],structure['required']):
-                            for p in plist:
-                                if p in keys:
-                                    f.write(fmts[p].format(rec[p]))
-                        f.write('\n')
-        f.close()
-
-    def control_2_attr(self,cstring):
-        return cstring.replace('*','').strip().replace(' ','_')
-    def attr_2_control(self,astring):
-        return '* '+astring.replace('_',' ')
-
-#----------------------------------------------------------
-#--some very basic logic
-#----------------------------------------------------------
-    def update(self,bottomup=True):
-        self.update_parameter_info(bottomup)
-        self.update_observation_info(bottomup)
-        #self.update_prior_info()
-
-
-    def update_observation_info(self,bottomup):
-        unique_groups = self.observation_data['OBGNME'].unique()
-        for i,ug in enumerate(unique_groups):
-            unique_groups[i] = ug.upper()
-        existing_groups = self.observation_groups['OBGNME'].values
-        for i,eg in enumerate(existing_groups):
-            existing_groups[i] = eg.upper()
-        if not bottomup:
-            for ug in unique_groups:
-                if ug not in existing_groups:
-                    sel = []
-                    for val in self.observation_data['OBGNME'].values:
-                        if val == ug.lower():
-                            sel.append(False)
-                        else:
-                            sel.append(True)
-                    self.observation_data = self.observation_data[sel]  
-                    self.observation_data.dropna()              
-        #--look for groups that are not included, to remove
-        else:
-            for eg in existing_groups:
-                sel = []
-                if eg not in unique_groups:
-                    for val in self.observation_groups['OBGNME'].values:
-                        if val == ug.lower():
-                            sel.append(False)
-                        else:
-                            sel.append(True)        
-                        self.observation_groups = self.observation_groups[sel]
-                        self.observation_groups.dropna()
-        self.nobs.set_value(self.observation_data.shape[0])
-        self.nobsgp.set_value(self.observation_groups.shape[0])
-        
-
-    def update_parameter_info(self,bottomup):
-        unique_groups = self.parameter_data['pargp'.upper()].unique()
-        for i,ug in enumerate(unique_groups):
-            unique_groups[i] = ug.upper()
-        existing_groups = self.parameter_groups['PARGPNME'].values
-        for i,eg in enumerate(existing_groups):
-            existing_groups[i] = eg.upper()
-        if not bottomup:
-            for ug in unique_groups:
-                if ug not in existing_groups:
-                    sel = []
-                    for val in self.parameter_data['PARGP'].values:
-                        if val == ug.lower():
-                            sel.append(False)
-                        else:
-                            sel.append(True)
-                    self.parameter_data = self.parameter_data[sel]  
-                    self.parameter_data.dropna()              
-        #--look for groups that are not included, to remove
-        else:
-            for eg in existing_groups:
-                sel = []
-                if eg not in unique_groups:
-                    for val in self.parameter_groups['PARGPNME'].values:
-                        if val == ug.lower():
-                            sel.append(False)
-                        else:
-                            sel.append(True)        
-                        self.parameter_groups = self.parameter_groups[sel]
-                        self.parameter_groups.dropna()
-        self.npar.set_value(self.parameter_data.shape[0])
-        self.npargp.set_value(self.parameter_groups.shape[0])
-        self.maxsing.set_value(self.parameter_data.shape[0])
-                    
-
-#--global stuff
+'''tries to do all lower case for strings
+'''
 
 S = str
 I = np.int
 F = np.float
 FMT = {I:'{0:10.0f} ',S:'{0:20s} ',F:'{0:15.7G} '}
-#NULL = {I:np.NaN,S:None,F:np.NaN}
-
 
 DTYPES = {'RSTFLE':S,'PESTMODE':S,'NPAR':I,'NOBS':I,'NPARGP':I,'NPRIOR':I,'NOBSGP':I,'MAXCOMPDIM':I,\
                     'NTPLFLE':I,'NINSFLE':I,'PRECIS':S,'DPOINT':S,'NUMCOM':I,'JACFILE':I,'MESSFILE':I,'OBSREREF':S,\
@@ -467,3 +97,430 @@ ALT_TERM
 OBS_TERM ABOVE_OR_BELOW OBS_THRESH NUM_ITER_THRESH (only if ALT_TERM is non-zero)
 NOBS_REPORT
 OBS_REPORT_1 OBS_REPORT_2 OBS_REPORT_3.. (NOBS_REPORT items)'''
+
+
+
+
+
+
+
+class entry():
+    def __init__(self,value=None,dtype=None,required=True,name=None):                
+        self.__value = value
+        if dtype == None:
+            dtype = type(value)
+        self.dtype = dtype
+        self.name = name
+        self.required = required
+        #self.acceptable_dtype = [np.int,np.float32,str]
+        #if dtype not in self.acceptable_dtypes:
+        #    raise Exception('unacceptable dtype: '+str(dtype)+' for entry: '+str(name))
+       
+    @property
+    def value(self):
+        return self.__value
+
+    @property
+    def string(self):
+        return FMT[self.dtype].format(self.__value)
+
+    def __eq__(self,other):   
+        if self.dtype == S:
+            if self.__value.lower() == other.lower():
+                return True
+            else:
+                return False     
+        elif self.__value == other:
+            return True
+        else:
+            return False
+    def __repr__(self):
+        return str(self.name) + ': '+self.string    
+ 
+    def set_value(self,value):
+        if self.dtype == I:
+            try:
+                self.__value = np.int(value)
+            except:
+                raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
+        elif self.dtype == F:
+            try:
+                self.__value = np.float(value)
+            except:
+                raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
+        elif self.dtype == S:
+            try:
+                self.__value = str(value).lower()
+            except:
+                raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
+        else:
+            raise Exception('unsupported dtype: '+str(self.dtype))
+
+                                              
+
+class pst():
+    def __init__(self,filename=None):
+        self.DTYPES = DTYPES
+        self.dtypes_2_lower()
+        self.build_pst_structure()
+        if filename:
+            self.read_pst(filename)
+    def dtypes_2_lower(self):
+        dts = {}
+        for key,value in self.DTYPES.iteritems():
+            dts[key.lower()] = value
+        self.DTYPES = dts
+#----------------------------------------------------------
+#--IO stuff
+#----------------------------------------------------------   
+    def build_pst_structure(self):       
+        '''load the text pst structure
+        into nested lists for output structure
+        Also builds the required list by looking
+        for '[' and ']' and builds the repeatable entry list
+        by keying on the '(' and ')'
+
+        special treatment of the tied parameter mess
+
+        '''        
+        #--nested list of parameter names
+        pst_list = []
+        #--nested list of bools for required pars
+        req_list = []                       
+        #--list of bools for repeatable entries (pars,obs,etc)
+        #--one entry for each section    
+        rep = False
+        section_dict = {}
+        section_entries = {}
+        section_order = []
+        #--parse and build
+        lines = PST_BASE.split('\n')
+        l_count = 0
+        last = 'pcf'
+        entries = {}
+        for line in lines:        
+            line = line.strip().lower()
+            #--if this is a control marker, then set req as False
+            if line.startswith('*'):                           
+                section_dict[last] = {'parameters':pst_list,'required':req_list,'repeatable':rep}
+                section_entries[last] = entries
+                section_order.append(line)
+                last = line 
+                pst_list = []
+                req_list = []
+                entries = {}
+                rep = False
+            #--otherwise
+            else:
+                
+                if '(' not in line:
+                    pst_list.append([])
+                    req_list.append([])
+                    rep = False
+                    raw = line.strip().split()              
+                    rq = True
+                    for i,r in enumerate(raw):
+                        if r.startswith('['):
+                            rq = False                                    
+                        req_list[-1].append(rq)
+                        if r.endswith(']'):
+                            rq = True                    
+                        r = r.replace('[','')
+                        r = r.replace(']','')
+                        #--this is the only place in the whole damn class that needs upper
+                        if r in self.DTYPES.keys():
+                            e = entry(None,dtype=self.DTYPES[r],name=r)
+                            entries[r] = e
+                        else:
+                            #  'warning',r,'not found in DTYPES'
+                            pass
+                        pst_list[-1].append(r)                    
+                else:
+                    rep = True                                                                        
+            l_count += 1 
+            
+        
+        section_dict[last] = {'parameters':pst_list,'required':req_list,'repeatable':rep}
+        section_entries[last] = entries                         
+        #--set a needed flag for each section
+        section_needed = {}
+        for key in section_dict.keys():
+            section_needed[key] = False
+        self.structure = section_dict
+        self.needed = section_needed
+        self.sections = section_entries
+        self.section_order = section_order
+        return
+
+    def parse_line(self,line,section_marker):
+        if 'PRIOR' in section_marker.upper():
+            raw = line.strip().split()
+            new_line = [raw[0],' '.join(raw[1:-2]),raw[-2],raw[-1]]
+            return new_line
+        else:
+            return line.strip().split()
+
+    def read_pst_section(self,f,section_marker):
+        '''read a non-repeatable section - set the entry instance values
+        '''
+        l_count = 0
+        params = self.structure[section_marker]['parameters']
+        while True:
+            line_start_pointer = f.tell()
+            line = f.readline().strip().lower()
+            if line == '':
+                break
+            elif line.startswith('*'):
+                f.seek(line_start_pointer)
+                return       
+            raw = self.parse_line(line,section_marker)
+            for r,p in zip(raw,params[l_count]):                                  
+               self.sections[section_marker][p].set_value(r)              
+            l_count += 1                                                
+                             
+    def read_pst_repeatable_section(self,f,section_marker):
+        '''read a repeatable section - build pandas dataframes
+        '''
+        #--create a dict structure to store the entries
+        params = self.structure[section_marker]['parameters'][0]        
+        records = {}
+        for key in params:
+            records[key] = []
+        while True:
+            line_start_pointer = f.tell()
+            line = f.readline().strip().lower()
+            if line == '':
+                break
+            elif line.startswith('*'):
+                f.seek(line_start_pointer)
+                break  
+            raw = self.parse_line(line,section_marker)
+            for p,r in zip(params,raw):
+                records[p].append(r)
+
+        #--set the missing entries as NaNs 
+        mx = 0
+        for key,rec in records.iteritems():
+            if len(rec) == 0:
+                records[key] = np.NaN                
+            if mx < len(rec):
+                mx = len(rec)
+        if mx == 0 :
+            raise Exception('zero-length repeatable section: '+str(section_marker))
+        elif mx == 1:
+            index = [0]
+            df = pandas.DataFrame(records,index=index)
+        else:
+            df = pandas.DataFrame(records) 
+                      
+        #--set the numeric dataframe column types
+        for key in df.keys():
+            if key in self.DTYPES and self.DTYPES[key] in [I,F]:
+                df[key] = df[key].astype(self.DTYPES[key])        
+        #--pop off null columns
+        for key,series in df.iteritems():
+            if len(series.dropna()) == 0:
+                df.pop(key)
+        self.sections[section_marker] = df
+        return
+                
+    def read_pst(self,filename):
+        '''read an existing PST file
+        '''
+        f = open(filename,'r')
+        #--read the pcf line
+        f.readline()
+        l_count,p_count = 1,1
+        while True:
+            line = f.readline().strip().lower()
+            if line == '':
+                break
+            #--if this is the start of a section     
+            elif '*' in line:            
+                self.needed[line] = True
+                p_count += 1
+                rep = self.structure[line]['repeatable']
+                if not rep:
+                    self.read_pst_section(f,line)
+                else:
+                    df = self.read_pst_repeatable_section(f,line)                                                                                                                  
+        self.__to_attrs()
+        f.close()
+
+    def __to_attrs(self):
+        for key,record in self.sections.iteritems():
+            attr_base = self.control_2_attr(key)
+            setattr(self,attr_base,record)
+            for ename,entry in record.iteritems():                               
+                #attr = attr_base+'.'+ename.lower()
+                attr = ename.lower()
+                setattr(self,attr,entry)
+        self.sections = None
+
+
+    def write_pst(self,filename):
+        f = open(filename,'w',0)
+        f.write('pcf\n')
+        for sname in self.section_order:
+            if self.needed[sname] and getattr(self,self.control_2_attr(sname)) is not None:
+                f.write(sname+'\n')
+                structure = self.structure[sname]
+                #section = getattr(self,self.control_2_attr(sname))
+                #--iterate over each line
+                rep = structure['repeatable']
+                if not rep:
+                    for plist,rqlist in zip(structure['parameters'],structure['required']):
+                        for p in plist:
+                            if hasattr(self,p):
+                                attr = getattr(self,p)
+                                if attr.value != None:
+                                    f.write(attr.string)  
+                        f.write('\n')    
+                else:
+                    attr = getattr(self,self.control_2_attr(sname))
+                    keys = attr.keys()
+                    dtypes,fmts = {},{}
+                    for k in keys:
+                        dtypes[k] = self.DTYPES[k]
+                        fmts[k] = FMT[self.DTYPES[k]]
+                    for idx,rec in attr.iterrows():
+                        for plist,rqlist in zip(structure['parameters'],structure['required']):
+                            for p in plist:
+                                if p in keys:
+                                    f.write(fmts[p].format(rec[p]))
+                        f.write('\n')
+        f.close()
+
+    def control_2_attr(self,cstring):
+        return cstring.replace('*','').strip().replace(' ','_')
+    def attr_2_control(self,astring):
+        return '* '+astring.replace('_',' ')
+
+#----------------------------------------------------------
+#--some very basic logic
+#----------------------------------------------------------
+
+    def remove_from_df_attr(self,attr_name,col_name,needed_list):
+        attr = getattr(self,attr_name)        
+        sel = []
+        for value in attr[col_name].values:
+            if value not in needed_list:
+                sel.append(False)
+            else:
+                sel.append(True)
+        attr = attr[sel]
+        setattr(self,attr_name,attr)
+        return
+
+    def compare_list_elements(self,list1,list2):
+        for e1 in list1:
+            if e1 not in list2:
+                return False
+        for e2 in list2:
+            if e2 not in list1:
+                return False
+        return True
+
+    def update(self,bottomup=True):
+        self.update_parameter_info(bottomup)
+        self.update_observation_info(bottomup)
+        self.update_prior_info(bottomup)
+    
+
+    def parse_pi_equation(self,p_str):
+        '''parses the pi equation string into pifacs,parnmes,pival
+        '''
+        operators = ['+','-','*','/']
+        lhs,rhs = p_str.split('=')
+        pival = float(rhs)        
+        lhs_tokens = lhs.split()
+        #--take steps of 3
+        parnames,pifacs = [],[]
+        for pifac,operator,raw_parnme in zip(lhs_tokens[0::3],lhs_tokens[1::3],lhs_tokens[2::3]):
+            parnme = raw_parnme.replace(')','').replace('log(','').lower()
+            pifac = float(pifac)
+            parnames.append(parnme)
+            pifacs.append(pifac)
+        return {'parnme':parnames,'pifac':pifacs,'pival':pival}
+        
+
+    def reconcile_prior_2_pars(self):
+        '''checks for missing parameter names in pi equations
+        '''
+        par_names = list(self.parameter_data.parnme)
+        pi_equation_strings = list(self.prior_information.pi_equation)
+        sel = []
+        for pi_eq in pi_equation_strings:
+            pars = self.parse_pi_equation(pi_eq)['parnme']
+            missing = False
+            for p in pars:
+                if p not in par_names:
+                    missing = True 
+                    break 
+            if missing:
+                sel.append(False)
+            else:
+                sel.append(True)
+        self.prior_information = self.prior_information[sel]
+        return
+        
+        
+
+
+
+    def update_prior_info(self,bottomup):
+        if self.prior_information is not None:
+            unique_groups = list(self.observation_data['obgnme'].unique())        
+            unique_groups.extend(list(self.prior_information['obgnme'].unique()))
+            existing_groups = self.observation_groups['obgnme'].values
+            same = self.compare_list_elements(unique_groups,existing_groups)
+            if not same:
+                if not bottomup:
+                    self.remove_from_df_attr('prior_information','obgnme',existing_groups)
+                else:
+                    self.remove_from_df_attr('observation_groups','obgnme',unique_groups)
+            self.nprior.set_value(self.prior_information.shape[0])
+        else:
+            unique_groups = list(self.observation_data['obgnme'].unique())   
+            self.remove_from_df_attr('observation_groups','obgnme',unique_groups)     
+            self.nprior.set_value(0)
+        nobsgp = self.observation_groups.shape[0]
+        self.nobsgp.set_value(nobsgp)
+        
+
+
+    def update_observation_info(self,bottomup):
+        unique_groups = list(self.observation_data['obgnme'].unique())
+        if self.prior_information is not None:
+            unique_groups.extend(list(self.prior_information['obgnme'].unique()))
+        existing_groups = self.observation_groups['obgnme'].values
+        same = self.compare_list_elements(unique_groups,existing_groups)
+        if not same:
+            #--reconcile obs data groups against obs groups
+            if not bottomup:
+                self.remove_from_df_attr('observation_data','obgnme',existing_groups)  
+            #--reconcile obs groups against observation data groups
+            else:
+                self.remove_from_df_attr('observation_groups','obgnme',unique_groups)
+        #--if there are any observation data with an unknown group
+
+        self.nobs.set_value(self.observation_data.shape[0])
+        self.update_prior_info(bottomup)
+        nobsgp = self.observation_groups.shape[0]
+        self.nobsgp.set_value(nobsgp)
+
+       
+    def update_parameter_info(self,bottomup):
+        unique_groups = self.parameter_data['pargp'].unique()
+        existing_groups = self.parameter_groups['pargpnme'].values
+        same = self.compare_list_elements(unique_groups,existing_groups)
+        if not same:
+            if not bottomup:
+                self.remove_from_df_attr(self.parameter_data,'pargp',existing_groups)    
+            else:
+                self.remove_from_df_attr(self.parameter_groups,'pargpnme',unique_groups)
+        self.npar.set_value(self.parameter_data.shape[0])
+        self.npargp.set_value(self.parameter_groups.shape[0])
+        self.maxsing.set_value(self.parameter_data.shape[0])
+                    
+
