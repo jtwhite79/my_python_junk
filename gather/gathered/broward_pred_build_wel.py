@@ -127,13 +127,40 @@ sp_len = flow.sp_len
 bnd_prefix = flow.list_dir+'wel_'
 bnd_prefix2 = seawat.list_dir+'wel_'
 
-mn_names,mn_names2 = {},{}
-for imonth,record in month_avg.iterrows():
-    bnd_name = bnd_prefix+str(imonth)+'.dat'
-    bnd_name2 = bnd_prefix2+str(imonth)+'.dat'
-    mn_names[imonth] = bnd_name
-    mn_names2[imonth] = bnd_name2
+#mn_names,mn_names2 = {},{}
+#for imonth,record in month_avg.iterrows():
+#    bnd_name = bnd_prefix+str(imonth)+'.dat'
+#    bnd_name2 = bnd_prefix2+str(imonth)+'.dat'
+#    mn_names[imonth] = bnd_name
+#    mn_names2[imonth] = bnd_name2
     
+#    wel_sp,wel_sp2 = [],[]
+#    for dep_name,value in zip(record.index,record.values):
+#        if dep_name not in inactive:            
+#            #--write all values for wel - makes SSM much easier
+#            for rcl_string in wel_rcl[dep_name]:
+#                line_wel = rcl_string + ' {0:20.8E} #{1}\n'.format(-value,dep_name)
+#                wel_sp.append(line_wel)
+#            for rcl_string in wel_rcl2[dep_name]:
+#                line_wel = rcl_string + ' {0:20.8E} #{1}\n'.format(-value,dep_name)
+#                wel_sp2.append(line_wel)
+#    f_bnd = open(bnd_name,'w',0)
+#    for line in wel_sp:
+#        f_bnd.write(line)
+#    f_bnd.close()
+
+#    f_bnd2 = open(bnd_name2,'w',0)
+#    for line in wel_sp2:
+#        f_bnd2.write(line)
+#    f_bnd2.close()
+
+
+sfac_mult = 0.00 #per annum
+for i,start in enumerate(sp_start):       
+        
+    bnd_name = bnd_prefix+start.strftime('%Y%m%d')+'.dat'
+    bnd_name2 = bnd_prefix2+start.strftime('%Y%m%d')+'.dat'
+    record = month_avg.ix[start.month]        
     wel_sp,wel_sp2 = [],[]
     for dep_name,value in zip(record.index,record.values):
         if dep_name not in inactive:            
@@ -153,19 +180,17 @@ for imonth,record in month_avg.iterrows():
     for line in wel_sp2:
         f_bnd2.write(line)
     f_bnd2.close()
+    
 
 
-sfac_mult = 0.00 #per annum
-for i,start in enumerate(sp_start):       
-        
-    bnd_name,bnd_name2 = mn_names[start.month],mn_names2[start.month]
     f_wel.write(' {0:9.0f} {1:9.0f} '.format(len(wel_sp),0)+'  # Stress Period '+str(i+1)+' '+start.strftime('%Y%m%d')+'\n')    
     f_wel2.write(' {0:9.0f} {1:9.0f} '.format(len(wel_sp),0)+'  # Stress Period '+str(i+1)+' '+start.strftime('%Y%m%d')+'\n')        
     f_wel.write('OPEN/CLOSE '+bnd_name+' \n')
     f_wel2.write('OPEN/CLOSE '+bnd_name2+' \n')
-    sfac = 1.0 + ((start.year - flow.start.year) * sfac_mult)
-    f_wel.write('SFAC {0:15.6E}\n'.format(sfac))
-    f_wel2.write('SFAC {0:15.6E}\n'.format(sfac))
+    
+    
+    
+    
     i += 1
   
 f_wel.close()      

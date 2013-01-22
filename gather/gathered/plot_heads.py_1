@@ -1,0 +1,35 @@
+import sys
+import pylab
+import numpy as np
+
+import MFBinaryClass as mfb
+import arrayUtil as au
+import kl_config
+
+nrow,ncol,nlay = kl_config.nrow,kl_config.ncol,1
+delr,delc = kl_config.delr,kl_config.delc                        
+
+cmap_heads = pylab.get_cmap('Spectral_r')
+cmap_conc = cmap_heads
+figsize = (4.67,2.57)
+axes = []
+hds_obj = mfb.MODFLOW_Head(nlay,nrow,ncol,'kltest.hds')
+totim,kstp,kper,hd,success = hds_obj.get_record()
+#hd = np.ma.masked_where(hd < 1.0,hd)
+for l in range(nlay):
+    #fig = pylab.figure(figsize=figsize)
+    fig = pylab.figure()
+    #ax = pylab.axes((0.025,0.15,0.975,0.8))
+    #cax = pylab.axes((0.025,0.05,0.975,0.03)) 
+    ax = pylab.subplot(111,aspect='equal')
+    p = ax.pcolor(np.flipud(hd[l,:,:]),cmap=cmap_heads,vmin=hd.min(),vmax=hd.max())
+    #ax.set_xlim(0,ncol)
+    #ax.set_ylim(0,nrow)
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
+    #cax = pylab.colorbar(p,cax=cax,orientation='horizontal')
+    cax = pylab.colorbar(p,orientation='horizontal')
+    cax.ax.set_title('heads '+str(l+1))
+    axes.append(ax)    
+    
+pylab.show()

@@ -1,0 +1,126 @@
+import sys
+import os
+import math
+import numpy as np
+import pylab
+import gc
+
+from datetime import datetime
+from datetime import timedelta
+
+import MFArrayUtil as au
+import MFBinaryClass as mfb 
+import shapefile as sf
+
+#preliminary figure specifications
+from matplotlib.pyplot import *
+import matplotlib as mpl
+from matplotlib.font_manager import FontProperties
+
+mpl.rcParams['font.sans-serif']          = 'Univers 57 Condensed' #'Arial'
+mpl.rcParams['font.serif']               = 'Times'
+mpl.rcParams['font.cursive']             = 'Zapf Chancery'
+mpl.rcParams['font.fantasy']             = 'Comic Sans MS'
+mpl.rcParams['font.monospace']           = 'Courier New'
+mpl.rcParams['pdf.compression']          = 0
+mpl.rcParams['pdf.fonttype']             = 42
+
+ticksize = 6
+mpl.rcParams['legend.fontsize']  = 6
+mpl.rcParams['axes.labelsize']   = 8
+mpl.rcParams['xtick.labelsize']  = ticksize
+mpl.rcParams['ytick.labelsize']  = ticksize
+
+#--model start date
+start_date = datetime.strptime( "19960101", "%Y%m%d")
+#--problem size
+nlay,nrow,ncol = 3,189,101
+#--read ibound
+ib_ref = os.path.join( '..', 'REF', 'UMD_IBOUND.ref' )
+ib = au.loadArrayFromFile(nrow,ncol,ib_ref)
+#--read initial zetas
+ref  = os.path.join( '..', 'REF', 'UMD_IHEAD_NAVD.ref' )
+ihead = au.loadArrayFromFile(nrow,ncol,ref)
+#--read the top of the model
+lse_ref = os.path.join( '..', 'REF', 'UMD_URBAN_EDEN_TOPO.ref' )
+model_lse = au.loadArrayFromFile(nrow,ncol,lse_ref)
+#--make a map
+iweek = 0
+#--read shapefile to use as base map on figures
+shape_name = os.path.join( 'D:/','Data','Users','jdhughes','GIS','Project Data','2080DBF00','Spatial','FigureData','BaseMap' )
+print shape_name
+hydrography = sf.load_shape_list(shape_name)
+#--coordinate information
+x0, y0  = 539750.0, 2785750.0
+dx,dy   = 500., 500.
+xcell = np.arange(x0+dx/2.,x0+(ncol*dx)+dx/2.0,dx)
+ycell = np.arange(y0+dy/2.,y0+(nrow*dy)+dy/2.0,dy)
+Xcell,Ycell = np.meshgrid(xcell,ycell)
+xedge = np.arange(x0,x0+float(ncol)*dx+0.001,dx)
+yedge = np.arange(y0,y0+float(nrow)*dy+0.001,dy)
+Xedge,Yedge = np.meshgrid(xedge,yedge)
+xmin,xmax = x0,x0+float(ncol)*dx
+ymin,ymax = y0,y0+float(nrow)*dy
+#--common data for each figure
+hdcontour  = np.arange(-1.5,2.5,0.5)  
+dtwcontour  = np.arange(-5.,5.,1.)  
+#--create figures for each output time
+hd = np.copy( ihead )
+dtw = np.copy( ihead )
+dtw = model_lse - dtw
+#--mask data in inactive areas
+hd  = np.ma.masked_where(ib<1,hd)
+dtw = np.ma.masked_where(ib<1,dtw)
+#--invert rows for plotting with pcolor
+hd       = np.flipud(hd)
+dtw      = np.flipud(dtw)
+#--calculate ranges
+minh, maxh = np.min(hd), np.max(hd)
+#--print summary of min and max head and zeta
+print 'Head                 [{0:10.3f},{1:10.3f}]'.format(minh,maxh)
+print 'DTW                  [{0:10.3f},{1:10.3f}]'.format(np.min(dtw),np.max(dtw))
+on_date = start_date
+cdate = datetime.strftime( on_date, '%m/%d/%Y' )
+#-Make figures
+#--head figure
+output_name = os.path.join( '..', 'Figures', 'Heads', 'Head_{0:05d}.png'.format( int( iweek ) ) )
+print 'creating figure...{0}'.format( output_name )
+ztf = figure(figsize=(4.4, 6), facecolor='w')
+ztf.subplots_adjust(wspace=0.2,hspace=0.2,left=0.05,right=0.95,bottom=0.05,top=0.95)
+ax = ztf.add_subplot(1,1,1,aspect='equal')
+ctitle = 'Groundwater head (m) on {0}'.format( cdate )
+text(0.0,1.01,ctitle,horizontalalignment='left',verticalalignment='bottom',size=7,transform=ax.transAxes)
+#hp = ax.pcolor(Xedge,Yedge,hd,vmin=-1.5,vmax=2,cmap='jet_r',alpha=1.0,edgecolors='None')
+hp = ax.imshow(np.flipud(hd),vmin=-1.5,vmax=2,cmap='jet_r',alpha=1.0,extent=[xmin,xmax,ymin,ymax])
+au.polyline_plot( ax, hydrography, '0.25' )
+ch = ax.contour(xcell,ycell,hd,levels=hdcontour,colors='k',linewidths=0.5)
+ax.clabel(ch,inline=1,fmt='%5.1f',fontsize=6)
+#--plot limits
+ax.set_xlim(xmin,xmax), ax.set_ylim(ymin,ymax)
+#--save the figure
+ztf.savefig(output_name,dpi=300)
+#--clear memory
+mpl.pyplot.close('all')
+gc.collect()
+#--depth to water figure
+output_name = os.path.join( '..', 'Figures', 'DTW', 'DTW_{0:05d}.png'.format( int( iweek ) ) )
+print 'creating figure...{0}'.format( output_name )
+ztf = figure(figsize=(4.4, 6), facecolor='w')
+ztf.subplots_adjust(wspace=0.2,hspace=0.2,left=0.05,right=0.95,bottom=0.05,top=0.95)
+ax = ztf.add_subplot(1,1,1,aspect='equal')
+ctitle = 'Depth to water (m) on {0}'.format( cdate )
+text(0.0,1.01,ctitle,horizontalalignment='left',verticalalignment='bottom',size=7,transform=ax.transAxes)
+#hp = ax.pcolor(Xedge,Yedge,dtw,vmin=-1.5,vmax=2,cmap='jet_r',alpha=1.0,edgecolors='None')
+hp = ax.imshow(np.flipud(dtw),vmin=0,vmax=5,cmap='jet_r',alpha=1.0,extent=[xmin,xmax,ymin,ymax])
+au.polyline_plot( ax, hydrography, '0.25' )
+ch = ax.contour(xcell,ycell,dtw,levels=dtwcontour,colors='k',linewidths=0.5)
+ax.clabel(ch,inline=1,fmt='%5.1f',fontsize=6)
+#--plot limits
+ax.set_xlim(xmin,xmax), ax.set_ylim(ymin,ymax)
+#--save the figure
+ztf.savefig(output_name,dpi=300)
+#--clear memory
+mpl.pyplot.close('all')
+gc.collect()
+
+

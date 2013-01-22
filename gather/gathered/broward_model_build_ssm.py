@@ -13,7 +13,7 @@ def get_ssm_line(lay,row,col,conc,itype):
 
 
 sea_conc = 1.0
-brackish_conc = 0.85
+brackish_conc = 0.5
 fresh_conc = 0.0
 
 
@@ -79,10 +79,12 @@ fnames = shapefile.get_fieldnames(shapename)
 #print fnames
 riv_itype = 4
 riv_lrcconc = {}
+riv_lrcconc_fresh = {}
 for r,c,reach in zip(records['ROW'],records['COLUMN'],records['REACH']):
     line = get_ssm_line(1,r,c,swr_conc[reach],riv_itype)
     riv_lrcconc[(r,c)] = line
-
+    line = get_ssm_line(1,r,c,0.0,riv_itype)
+    riv_lrcconc_fresh[(r,c)] = line
 
 #--load a list of well locs
 print 'loading well info'
@@ -120,15 +122,19 @@ for i in range(flow.nrow):
     for j in range(flow.ncol):
         ib_val = flow.ibound[i,j]
         if ib_val > 1:
-            if ib_val == sea_val:
-                conc = sea_conc
-            elif ib_val == brackish_val:
-                conc = brackish_conc
-            else:
-                conc = fresh_conc
-            for lay in seawat.ghb_layers:
-                line = get_ssm_line(lay,i+1,j+1,conc,ghb_itype)
+            #--ICW ghbs only in layer 1
+            if ib_val == brackish_val:
+                conc = brackish_conc                
+                line = get_ssm_line(1,i+1,j+1,conc,ghb_itype)
                 ghb_lrcconc.append(line)
+            else:
+                if ib_val == sea_val:
+                    conc = sea_conc
+                else:
+                    conc = fresh_conc
+                for lay in seawat.ghb_layers:
+                    line = get_ssm_line(lay,i+1,j+1,conc,ghb_itype)
+                    ghb_lrcconc.append(line)
                                                                  
 print 'writing ssm file'                
 mxact_ghb = len(ghb_lrcconc)
@@ -163,7 +169,10 @@ for i,start in enumerate(flow.sp_start):
     f_ssm.write('{0:10.0f}\n'.format(mxss))
     for line in ghb_lrcconc:
         f_ssm.write(line)
-   
+    #if start.month in [6,7,8,9,10]:
+    #    for rc_tup in riv_act:
+    #        f_ssm.write(riv_lrcconc_fresh[rc_tup])
+    #else:       
     for rc_tup in riv_act:
         f_ssm.write(riv_lrcconc[rc_tup])
     for line in wel_lines:

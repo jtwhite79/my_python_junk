@@ -81,6 +81,7 @@ mf.add_external(modelname+'.fls',101,binflag=True)
 mf.add_external(modelname+'.stg',102,binflag=True)
 mf.add_external(modelname+'.aqx',103,binflag=True)
 mf.add_external(modelname+'.pqm',104,binflag=True)
+mf.add_external(flow.root+'_swr.cbc',flow.swr_unit,binflag=True)
 mf.add_external(modelname+'.riv',107)
 
 mf.write_input()

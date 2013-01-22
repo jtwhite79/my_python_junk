@@ -1,0 +1,92 @@
+#--TSA - Homework #2 - Trend Analysis
+#--Jeremy White Sept 2010
+
+#--libraries
+import numpy as np
+from numpy import ma
+import scipy
+import pylab
+
+#--load
+file = '..\\Data\\S-22_H_T_Q.ref'
+data = np.loadtxt(file,skiprows=1)
+col_labels = ['totim','s22_h','s22_t','s22_q']
+idxs = np.argwhere(np.abs(data)>9000.0)
+data[idxs] = 0.0
+
+#--calc linear trend for base series
+m,b = scipy.polyfit(data[:,0],data[:,1],1)
+trd = data[:,0]*m + b
+detrend = data[:,1] - trd
+
+
+#--calc differencing
+f_diff = data[0:-1,1] - data[1:,1]
+s_diff = f_diff[0:-1] - f_diff[1:]
+t = data[:,0]
+
+#--calc linear trend on diff arrays
+m_fd,b_fd = scipy.polyfit(t[:-1],f_diff,1)
+m_sd,b_sd = scipy.polyfit(t[:-2],s_diff,1)
+
+#--calc trend lines
+fd_trd = t[:-1]*m_fd + b_fd
+sd_trd = t[:-2]*m_sd + b_sd
+
+#--plot diff arrays
+fig3 = pylab.figure(figsize=(8.5,8.5))
+
+ax = pylab.subplot(311)
+ax.plot(data[:,0],data[:,1],'b+',label='raw series')
+ax.plot(data[:,0],trd,'k--')
+ax.set_xticks([])
+ax.set_xlabel(col_labels[0])
+ax.set_ylabel(col_labels[1])
+
+ax2 = pylab.subplot(312)
+ax2.plot(data[:,0],detrend,'b+',label='detrended series')
+
+
+
+ax2 = pylab.subplot(3,1,3)
+ax2.plot(t[:-1],f_diff,'b+')
+ax2.plot(t[:-1],fd_trd,'k-',label='linear trendline') 
+#ax.plot((np.min(data[:,0]),np.max(data[:,0])),(0,0),'b--')
+#ax.set_ylim(-np.abs(np.max(f_diff)),np.abs(np.max(f_diff)))   
+ax2.set_xlabel(col_labels[0])
+ax2.set_ylabel(col_labels[1])
+
+#ax2.set_title('1st-Order Differencing')
+#ax2.text(1885,25,'trendline parameters:\n'+str(np.round(m_fd,3))+' '+str(np.round(b_fd,3)))
+
+       
+
+
+num_lags = 100
+sig_val = 2.0/np.sqrt(data.shape[0])
+
+fig2 = pylab.figure()
+ax5 = pylab.subplot(311)
+lags,c,lincol,b = ax5.acorr(data[:,1],maxlags=num_lags) 
+ax5.plot([0,num_lags],[sig_val,sig_val],'b--')
+ax5.plot([0,num_lags],[-sig_val,-sig_val],'b--')
+ax5.set_xlim(-1,num_lags)
+ax5.set_label('raw')
+ax3 = pylab.subplot(312)
+lags,c,lincol,b = ax3.acorr(detrend,maxlags=num_lags) 
+ax3.plot([0,num_lags],[sig_val,sig_val],'b--')
+ax3.plot([0,num_lags],[-sig_val,-sig_val],'b--')
+ax3.set_xlim(-1,num_lags)
+ax3.set_label('detrended')
+ax4 = pylab.subplot(313)
+lags,c,lincol,b = ax4.acorr(f_diff,maxlags=num_lags) 
+ax4.plot([0,num_lags],[sig_val,sig_val],'b--')
+ax4.plot([0,num_lags],[-sig_val,-sig_val],'b--')
+ax4.set_xlim(-1,num_lags)
+ax4.set_label('1st-order differenced')
+
+pylab.show()
+
+
+
+

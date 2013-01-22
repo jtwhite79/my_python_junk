@@ -1,0 +1,116 @@
+import sys
+import os
+import subprocess as sp
+from datetime import datetime
+
+start = datetime.now()
+
+#--open a log file
+f_log = open('MD_CWM_forward_run.log','w',0)
+f_log.write(str(start)+' - starting forward run\n\n')
+
+#--try to import python utilities needed to prepare for run
+f_log.write(str(datetime.now())+' - import python utilities...\n')
+try:
+    import MD_CWM_fac2real_list as f2rl
+except Exception as e:
+    f_log.write('ERROR -- cannot import python utility MD_CWM_fac2real_list.py\n')
+    f_log.write(str(e)+'\n')
+    f_log.close()
+    raise    
+try:
+    import MD_CWM_list_2_arrays as l2a
+except Exception as e:
+    f_log.write('ERROR -- cannot import python utility MD_CWM_fac2real_list.py\n')
+    f_log.write(str(e)+'\n')
+    f_log.close()
+    raise 
+f_log.write(str(datetime.now())+' - done\n\n')    
+
+#--delete existing model files
+f_log.write(str(datetime.now())+' - removing model files...\n')
+rm_list = ['UMD.01\\ref\\UMD_HK_l1.ref','UMD.01\\ref\\UMD_HK_l2.ref','UMD.01\\ref\\UMD_HK_l3.ref']
+rm_list.extend(['UMD.01\\ref\\UMD_ETS_ETSX.ref','UMD.01\\ref\\UMD_ETS_PXDP_SEG_01.ref','UMD.01\\ref\\UMD_ETS_PXDP_SEG_02.ref','UMD.01\\ref\\UMD_ETS_PETM_01.ref','UMD.01\\ref\\UMD_ETS_PETM_02.ref','UMD.01\\ref\\UMD_ETS_PETM_03.ref','UMD.01\\ref\\UMD_ETS_PETM_04.ref','UMD.01\\ref\\UMD_ETS_PETM_05.ref','UMD.01\\ref\\UMD_ETS_PETM_06.ref','UMD.01\\ref\\UMD_ETS_PETM_07.ref','UMD.01\\ref\\UMD_ETS_PETM_08.ref','UMD.01\\ref\\UMD_ETS_PETM_09.ref','UMD.01\\ref\\UMD_ETS_PETM_10.ref','UMD.01\\ref\\UMD_ETS_PETM_11.ref','UMD.01\\ref\\UMD_ETS_PETM_12.ref'])
+rm_list.extend(['UMD.01\\modref\\head\\mheads.smp','UMD.01\\results\\umd.hds'])
+rm_list.extend(['UMD.01\\ref\\UMD_NEXRAD_MULT_01.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_02.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_03.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_04.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_05.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_06.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_07.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_08.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_09.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_10.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_11.ref','UMD.01\\ref\\UMD_NEXRAD_MULT_12.ref']
+for fname in rm_list:
+    try:
+        os.remove(fname)
+        f_log.write(' -- removed modelfile: '+str(fname)+'\n')
+    except Exception as e:
+        f_log.write(' -- unable to remove modelfile: '+str(fname)+'\n')
+        f_log.write(str(e)+'\n')
+f_log.write(str(datetime.now())+' - done\n\n')
+
+#--run the python utility l2a to write NEXRAD multiplier arrays
+f_log.write(str(datetime.now())+' - using MD_CWM_list2array to write NEXRAD Mulitpliers...\n')
+try:
+    l2a.list_2_array('par\\nexrad_parameters.dat','ref\\UMD_nexrad.ref')
+except Exception as e:
+    f_log.write('ERROR -- cannot run list_2_array.py for nexrad multipliers\n')
+    f_log.write(str(e)+'\n')
+    f_log.close()
+    raise     
+f_log.write(str(datetime.now())+' - done\n\n')
+
+#--run the python utility l2a to write BLU arrays
+f_log.write(str(datetime.now())+' - using MD_CWM_list2array to write BLU related arrays...\n')
+try:
+    l2a.list_2_array('par\\blu_parameters.dat','ref\\UMD_BLU.ref')
+except Exception as e:
+    f_log.write('ERROR -- cannot run list_2_array.py for blu arrays\n')
+    f_log.write(str(e)+'\n')
+    f_log.close()
+    raise     
+f_log.write(str(datetime.now())+' - done\n\n')
+
+#--run the python utility f2rl to write K arrays
+f_log.write(str(datetime.now())+' - using MS_CWM_fac2real_list to write K arrays...\n')
+try:
+    f2rl.fac2real_list()
+except Exception as e:
+    f_log.write('ERROR -- cannot run fac2real_list for K arrays\n')
+    f_log.write(str(e)+'\n')
+    f_log.close()
+    raise     
+f_log.write(str(datetime.now())+' - done\n\n')
+
+
+#--run MODFLOW
+f_log.write(str(datetime.now())+' - starting modflow...\n')
+try:
+    os.chdir('UMD.01\\')
+    #pass
+    os.system('mfnwt-SWR_x64.exe UMD.nam')
+    #sp.Popen(['mfnwt-SWR_x64.exe','UMD.nam'],cwd='UMD.01\\')
+except Exception as e:
+    f_log.write('ERROR -- cannot run modflow\n')
+    f_log.write(str(e)+'\n')
+    f_log.close()
+    raise         
+f_log.write(str(datetime.now())+' - done\n\n')
+
+#--mod2obs
+try:
+    os.chdir('..\\')
+    os.system('mod2obs.exe <mod2obs.in')
+    #sp.Popen(['mod2obs.exe','mod2obs.in'])
+except Exception as e:
+    f_log.write('ERROR -- cannot run mod2obs\n')
+    f_log.write(str(e)+'\n')
+    f_log.close()
+    raise         
+f_log.write(str(datetime.now())+' - done\n\n')
+
+#--postprocessing with tsproc
+try:
+     os.system('tsproc.exe <tsproc_model_run.in')
+    #sp.Popen(['tsproc.exe','tsproc_model_run.in'])
+except Exception as e:
+    f_log.write('ERROR -- cannot run tsproc\n')
+    f_log.write(str(e)+'\n')
+    f_log.close()
+    raise         
+f_log.write(str(datetime.now())+' - done\n\n')
+
+f_log.close()

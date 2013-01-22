@@ -81,7 +81,7 @@ xsec_path = '..\\..\\_swr\\xsec_navd\\'
 igcndop = 3 #use K of the cell and leakance
 igeotype = 3
 gcndln = 250.0
-glk = 5.0
+glk = 2.5
 gmann = 0.030
 data_11 = []
 for i,unique_xsec in enumerate(unique_xsec_names):
@@ -100,7 +100,7 @@ f.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
 #-- ds-1 
 options = ['PRINT_SWR_TO_SCREEN','SAVE_AVERAGE_RESULTS','USE_NONCONVERGENCE_CONTINUE','SAVE_RIVER_PACKAGE 107',\
     'USE_INEXACT_NEWTON','USE_LAGGED_OPR_DATA','USE_DIAGONAL_SCALING','USE_RCM_REORDERING','USE_EXPLICIT_NEWTON_CORRECTION']
-ds_1 = swr.ds_1(len(reaches),iswrprgf=-101,iswrpstg=-102,iswrpqaq=-103,iswrpqm=-104,options=options)
+ds_1 = swr.ds_1(len(reaches),iswrprgf=-101,iswrpstg=-102,iswrpqaq=-103,iswrpqm=-104,iswrcbc=flow.swr_unit,options=options)
 ds_1.write(f)
 #ds_1.add_2_namefile(bro.modelname)
 
@@ -108,7 +108,7 @@ ds_1.write(f)
 ds_2 = swr.ds_2()
 ds_2.write(f)
 
-ds_3 = swr.ds_3()
+ds_3 = swr.ds_3(tola=0.0)
 ds_3.write(f)
 
 ds_4a = swr.ds_4a(reaches)

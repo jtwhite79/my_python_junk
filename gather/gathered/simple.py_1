@@ -1,0 +1,63 @@
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+import numpy as np
+import pylab
+
+class grid:
+    start = datetime(year=2013,month=1,day=1)
+    end = datetime(year=2014,month=12,day=31)
+    step = relativedelta(days=1)
+    sp_start = []
+    sp_end = []
+    day = start
+    while day < end:
+        sp_start.append(day)
+        day += step
+        sp_end.append(day - relativedelta(days=1))
+    pred_length = relativedelta(months=1)
+    sp_end[-1] = sp_start[-1] + pred_length
+    modelname = 'simple'
+    nrow = 300
+    ncol = 300
+    nlay = 20
+    
+
+
+    lay_key = ['upper'] * 6
+    lay_key.extend(['middle']*2)
+    lay_key.extend(['lower']*12)
+    sample_stride = 2
+    row_map = {}
+    for i in range(0,nrow,sample_stride):
+        row_map[i/sample_stride] = [x for x in range(i,i+sample_stride)]
+    col_map = {}
+    for j in range(0,ncol,sample_stride):
+        col_map[j/sample_stride] =  [x for x in range(j,j+sample_stride)]
+
+
+    try:
+        top = np.loadtxt('ref\\top.ref')
+    except:
+        pass
+    bot = 0.0
+    hydro_dict = {}
+    hydro_dict['upper'] = {'k':20.0,'sy':0.15,'ss':0.001,'thk':30.0}
+    hydro_dict['middle'] = {'k':0.5,'sy':0.2,'ss':0.001,'thk':10.0}
+    hydro_dict['lower'] = {'k':150.0,'sy':0.1,'ss':0.001,'thk':60.0}
+    prop_names = ['k','sy','ss']
+    ibound_names = ['ref\\ibound.ref']
+    for k in range(1,nlay):
+        ibound_names.append('ref\\ibound_'+str(k+1)+'.ref')
+
+    deltaxy = 100.0
+    xmin,ymin = 0.0,0.0
+    delr = np.zeros((ncol)) + deltaxy
+    delc = np.zeros((nrow)) + deltaxy
+    cols = np.zeros((ncol+1)) + deltaxy
+    cols[0] = 0.0 
+    rows = np.zeros((nrow+1)) + deltaxy
+    rows[0] = 0.0 
+    rows = np.flipud(np.cumsum(rows) + ymin)
+    cols = np.cumsum(cols) + xmin
+
+    plot_extent = [cols[0],cols[-1],rows[0],rows[-1]]

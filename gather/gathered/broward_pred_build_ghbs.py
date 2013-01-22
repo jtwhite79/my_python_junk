@@ -26,37 +26,24 @@ df_ns_monthly = df_ns_data.groupby(lambda x:x.month).mean()
 print df_ns_monthly.index
 #--process stage record for coastal GHBs - presampled
 coastal_df = pandas.read_csv('..\\..\\_noaa\\noaa_slr.csv',index_col=0,parse_dates=True)
-coastal_stages = coastal_df['med_rise'].values
+coastal_stages = coastal_df[flow.slr_scenario].values
 
 #--process stage records for WCA ghbs - these records should have been presampled to stress period dimensions
 print 'processing EDEN records'
-smp_dir = '..\\..\\_eden\\stage_smp_full\\'
-#smp_files = os.listdir(smp_dir)
-#eden_ids = []
-#eden_sp_vals = {}
-#for sfile in smp_files:
-#    print 'loading smp file',sfile,'\r',
-#    eden_id = int(sfile.split('.')[0])
-#    eden_ids.append(eden_id)
-#    smp = pu.smp(smp_dir+sfile,load=True)
-#    rec = smp.records[str(eden_id)]
-#    #--some defense 
-#    assert rec.shape[0] == len(flow.sp_len)
-#    assert rec[0,0].month == flow.start.month
-#    assert rec[-1,0].month == flow.end.month
-#    eden_sp_vals[eden_id] = rec[:,1]
 df_eden = pandas.read_csv('..\\..\\_eden\\eden_sp.csv',index_col=0,parse_dates=True)
 df_eden_monthly = df_eden.groupby(lambda x:x.month).mean()
 print df_eden_monthly.index
-#--load the row col for both GHB sets
+
 print 'loading grid info for coastal GHBs'
 g_att = shapefile.load_as_dict('..\\..\\_gis\\shapes\\broward_grid_master',loadShapes=False,attrib_name_list=['row','column','ibound_CS'])
 icoast_rowcol,atlant_rowcol = [],[]
 for r,c,i in zip(g_att['row'],g_att['column'],g_att['ibound_CS']):
-    if i == 5:
-        icoast_rowcol.append([r,c])
+    if i in [51,52,53,54,55]:
+        icoast_rowcol.append([r,c,i])
     elif i == 2:
-        atlant_rowcol.append([r,c])
+        atlant_rowcol.append([r,c,i])
+
+
 print 'loading grid info for WCA GHBs'
 recs = shapefile.load_as_dict('..\\..\\_gis\\scratch\\broward_grid_eden',loadShapes=False)
 wca_r,wca_c,eden_fracs,eden_cells = recs['row'],recs['column'],recs['eden_fracs'],recs['eden_cells']
@@ -104,16 +91,16 @@ for i,[sp,spe] in enumerate(zip(flow.sp_start,flow.sp_end)):
     fl2 = open(list_name2,'w')            
     #--write coastal GHBs
     coastal_stage = coastal_stages[i]
-    for r,c in icoast_rowcol:
-        fl.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  {5}\n'.format(1,r,c,coastal_stage,cond,'#icoast'))
+    for r,c,zone in icoast_rowcol:
+        fl.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  #{5:<3.0f}\n'.format(1,r,c,coastal_stage,cond,zone))
     for l in flow.ghb_layers:        
-        for r,c in atlant_rowcol:
-            fl.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  {5}\n'.format(l,r,c,coastal_stage,cond,'#atlant'))
-    for r,c in icoast_rowcol:
-        fl2.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  {5}\n'.format(1,r,c,coastal_stage,cond,'#icoast'))
+        for r,c,zone in atlant_rowcol:
+            fl.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  #{5:<3.0f}\n'.format(l,r,c,coastal_stage,cond,zone))
+    for r,c,zone in icoast_rowcol:
+        fl2.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  #{5:<3.0f}\n'.format(1,r,c,coastal_stage,cond,zone))
     for l in seawat.ghb_layers:
-        for r,c in atlant_rowcol:
-            fl2.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  {5}\n'.format(l,r,c,coastal_stage,cond,'#atlant'))
+        for r,c,zone in atlant_rowcol:
+            fl2.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  #{5:<3.0f}\n'.format(l,r,c,coastal_stage,cond,zone))
     #--write wca ghbs
     #--build a dict of stage values for this stress period
     #evals = {}
@@ -128,10 +115,10 @@ for i,[sp,spe] in enumerate(zip(flow.sp_start,flow.sp_end)):
         stage_vals.append(val)
     for l in flow.ghb_layers:
         for r,c,stage in zip(wca_r,wca_c,stage_vals):
-            fl.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  {5}\n'.format(l,r,c,stage,cond,'#eden'))
+            fl.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  #{5:<3.0f}\n'.format(l,r,c,stage,cond,30))
     for l in seawat.ghb_layers:
         for r,c,stage in zip(wca_r,wca_c,stage_vals):
-            fl2.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  {5}\n'.format(l,r,c,stage,cond,'#eden'))
+            fl2.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  #{5:<3.0f}\n'.format(l,r,c,stage,cond,30))
     #--write north south ghbs
     #--write north south ghbs
     #df_ns_dt = df_ns_monthly.ix[sp.month]
@@ -144,9 +131,9 @@ for i,[sp,spe] in enumerate(zip(flow.sp_start,flow.sp_end)):
         if np.isnan(stage):
             raise Exception('NAN stage '+site+' '+str(dt))                        
         for l in flow.ghb_layers:
-            fl.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  {5}\n'.format(l,r,c,stage,cond,'#ns'))
+            fl.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  #{5:<3.0f}\n'.format(l,r,c,stage,cond,40))
         for l in seawat.ghb_layers:
-            fl2.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  {5}\n'.format(l,r,c,stage,cond,'#ns'))
+            fl2.write(' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.4e} {4:9.4e}  #{5:<3.0f}\n'.format(l,r,c,stage,cond,40))
     fl.close()
     fl2.close()
 f.close()

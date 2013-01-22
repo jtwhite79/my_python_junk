@@ -1,0 +1,157 @@
+import sys
+import os
+import gc
+import math
+import pylab
+import numpy as np
+import MFArrayUtil as au
+import shapefile as sf
+import pestUtil as pu
+
+def DetermineIfIsolatedCell(irow,jcol,sl_crit,nrow,ncol,ib,top):
+    ira  = [0,0,-1,+1]
+    jca  = [-1,+1,0,0]
+    ingh = np.zeros( (4), np.float )
+    for iadj in xrange(0,4):
+        irow0 = irow + ira[iadj]
+        jcol0 = jcol + jca[iadj]
+        if irow0 >= 0 and irow0 < nrow:
+            if jcol0 >= 0 and jcol0 < ncol:
+                te0 = top[irow0,jcol0]
+                ib0 = ib[irow0,jcol0]
+                if ib0 > 1:
+                    if te0 <= sl_crit:
+                        ingh[iadj] = 1.0
+    #--skip isolated coastal cells
+    skip = False
+    if ingh.sum() < 1.0:
+        skip = True
+    return skip
+
+#-Figure defaults
+import matplotlib as mpl
+from matplotlib.font_manager import FontProperties
+mpl.rcParams['font.sans-serif']          = 'Univers 57 Condensed'
+mpl.rcParams['font.serif']               = 'Times'
+mpl.rcParams['font.cursive']             = 'Zapf Chancery'
+mpl.rcParams['font.fantasy']             = 'Comic Sans MS'
+mpl.rcParams['font.monospace']           = 'Courier New'
+mpl.rcParams['pdf.compression']          = 0
+mpl.rcParams['pdf.fonttype']             = 42
+ticksize = 6
+mpl.rcParams['font.size']        = 8
+mpl.rcParams['legend.fontsize']  = 6
+mpl.rcParams['axes.labelsize']   = 8
+mpl.rcParams['axes.titlesize']   = 8
+mpl.rcParams['xtick.labelsize']  = ticksize
+mpl.rcParams['ytick.labelsize']  = ticksize
+mpl.rcParams['contour.negative_linestyle'] = 'solid'
+
+#--main script
+shape_name = os.path.join('D:/','Data','Users','jdhughes','GIS','Project Data','2080DBF00','Spatial','FigureData','BaseMap')
+hydrography = sf.load_shape_list(shape_name)
+salinity_struct_shape_name = os.path.join('D:/','Data','Users','jdhughes','GIS','Project Data','2080DBF00','Spatial','FigureData','SalinityControlStructures')
+salinity_struc = sf.load_shape_list(salinity_struct_shape_name)
+df_struct_shape_name = os.path.join('D:/','Data','Users','jdhughes','GIS','Project Data','2080DBF00','Spatial','FigureData','DrainageFloodControlStructures')
+df_struc = sf.load_shape_list(df_struct_shape_name)
+pws_struct_shape_name = os.path.join('D:/','Data','Users','jdhughes','GIS','Project Data','2080DBF00','Spatial','Water Use','pumpwells_lb')
+pws = sf.load_shape_list(pws_struct_shape_name)
+
+figuresize = [4.4,6]
+
+#--conversion factors
+ft2m = 1.0 / 3.28081
+
+lse_c     = np.arange(-6,8,2)
+sl_change = np.linspace(0.0,3.0,4.0) * ft2m
+
+
+#--dimensions
+nrow     = 189
+ncol     = 101
+
+#--coordinate information
+x0, y0  = 539750.0, 2785750.0
+dx,dy   = 500., 500.
+xcell = np.arange(x0+dx/2.,x0+(ncol*dx)+dx/2.0,dx)
+ycell = np.arange(y0+dy/2.,y0+(nrow*dy)+dy/2.0,dy)
+Xcell,Ycell = np.meshgrid(xcell,ycell)
+xedge = np.arange(x0,x0+float(ncol)*dx+0.001,dx)
+yedge = np.arange(y0,y0+float(nrow)*dy+0.001,dy)
+Xedge,Yedge = np.meshgrid(xedge,yedge)
+xmin,xmax = x0,x0+float(ncol)*dx
+ymin,ymax = y0,y0+float(nrow)*dy
+
+#--read exiting ref files
+#--ibound
+ib_ref   = os.path.join( 'D:/','Data','Users','jdhughes','Projects','2080DBF00','UMD','UMD.01','REF','UMD_IBOUND.ref')
+ib = au.loadArrayFromFile(nrow,ncol,ib_ref)
+#--filtered land surface elevation used in model - m NAVD88
+lse_ref = os.path.join( 'D:/','Data','Users','jdhughes','Projects','2080DBF00','UMD','UMD.01','REF','UMD_URBAN_EDEN_TOPO.ref')
+model_lse = au.loadArrayFromFile(nrow,ncol,lse_ref)
+#--read data from smp file
+smp_ref = os.path.join( 'D:/','Data','Users','jdhughes','Projects','2080DBF00','UMD','UMD.01','obsref','stage', 'S123_T.smp')
+smp = pu.smp(smp_ref,load=True,date_fmt='%m/%d/%Y')
+S123_T = np.copy( smp.records['S123_T'][:,1] )
+mean_sl = np.mean(S123_T)
+max_sl = S123_T.max()
+p90_sl = np.percentile( S123_T, 90 )
+print mean_sl, max_sl, p90_sl
+
+for slc in sl_change:
+    new_sl = mean_sl + slc
+#    new_sl = max_sl + slc
+#    new_sl = p90_sl + slc
+    tmask = np.zeros( (nrow,ncol), np.int )
+    #--setup base sea-level mask
+    for irow in xrange(0,nrow):
+        for jcol in xrange(0,ncol):
+            ibt = ib[irow,jcol]
+            lset = model_lse[irow,jcol]
+            if ibt == 1:
+                tmask[irow,jcol] = 1
+            elif ibt > 1 and lset > new_sl:
+                tmask[irow,jcol] = 1
+    #--eliminate isolated cells
+    for irow in xrange(0,nrow):
+        for jcol in xrange(0,ncol):
+            ibt = ib[irow,jcol]
+            lset = model_lse[irow,jcol]
+            if ibt > 1 and lset <= new_sl:
+                isolated = DetermineIfIsolatedCell(irow,jcol,new_sl,nrow,ncol,ib,model_lse)
+                if isolated == True:
+                    tmask[irow,jcol] = 1
+    temp   = np.ma.masked_where(ib<1,model_lse)
+    temp   = np.ma.masked_where(tmask==0,temp)
+    slmask = np.ones( (nrow,ncol), np.float )
+    slmask = np.ma.masked_where(ib<1,slmask)
+    slmask = np.ma.masked_where(tmask==1,slmask)
+    output_name = os.path.join( '..', 'figures', 'SealevelIncrease_{0:04d}mm.png'.format( int(slc*1000.) ) )
+    print 'creating figure...{0}'.format( output_name )
+    ztf = mpl.pyplot.figure(figsize=(4.4, 6), facecolor='w')
+    ztf.subplots_adjust(wspace=0.2,hspace=0.2,left=0.05,right=0.95,bottom=0.05,top=0.95)
+    ax = ztf.add_subplot(1,1,1,aspect='equal')
+    ctitle = 'Mean sea-level {0:6.3f} meters NAVD 88'.format( new_sl )
+#    ctitle = 'Maximum sea-level {0:6.3f} meters NAVD 88'.format( new_sl )
+    if slc > 0.0:
+        ctitle = '{0} (+{1:5.3f} meters)'.format( ctitle, slc )
+    ax.text(0.0,1.01,ctitle,horizontalalignment='left',verticalalignment='bottom',size=7,transform=ax.transAxes)
+    hp = ax.imshow(temp,vmin=mean_sl,vmax=5,cmap='gist_earth',alpha=1.0,extent=[xmin,xmax,ymin,ymax])
+    au.polyline_plot( ax, hydrography, '0.25' )
+    au.point_plot( ax, salinity_struc, marker='o', markersize=3, markeredgecolor='black', markerfacecolor='red' )
+    au.point_plot( ax, df_struc, marker='s', markersize=3, markeredgecolor='black', markerfacecolor='cyan' )
+    au.point_plot( ax, pws, marker='o', markersize=1, markeredgecolor='black', markerfacecolor='black' )
+    ch = ax.contour(xcell,ycell,np.flipud(temp),levels=lse_c,colors='k',linewidths=0.5)
+    ax.clabel(ch,inline=1,fmt='%5.1f',fontsize=6)
+    tm = ax.imshow(slmask,vmin=-3.,vmax=2.,cmap='gray',alpha=1.0,extent=[xmin,xmax,ymin,ymax],interpolation='none')
+    #--colorbar
+    cax=mpl.pyplot.axes([0.75,0.065,0.025,0.20])
+    mpl.pyplot.colorbar(hp,cax=cax,orientation='vertical')                                       
+    cax.set_title('meters',size=8) 
+    #--plot limits
+    ax.set_xlim(xmin,xmax), ax.set_ylim(ymin,ymax)
+    #--save the figure
+    ztf.savefig(output_name,dpi=300)
+    #--clear memory
+    mpl.pyplot.close('all')
+    gc.collect()

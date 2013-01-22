@@ -20,8 +20,6 @@ unique_rgnum = np.unique(reach_rowcol[:,1])
 rgnum_info = {}
 
 for u in unique_rgnum:
-    if u == 2243:
-        pass
     rec_rowcol = reach_rowcol[np.where(reach_rowcol[:,1]==u)]
     rgnum_info[u] = rec_rowcol[:,[0,2,3]]
 rch_info = {}
@@ -72,7 +70,7 @@ for f in bnd_files:
 #bf_idx = 6
 sp_num = 1
 
-cbc_file = flow.root+'.cbc'
+cbc_file = flow.root+'_swr.cbc'
 cbc_obj = mfb.MODFLOW_CBB(flow.nlay,flow.nrow,flow.ncol,cbc_file)
 flux_type = '     SWR LEAKAGE'
 
@@ -159,6 +157,7 @@ while True:
     f_bnd_flow.close()  
     tot_vol_record.append([kper,tot_vol])       
 tot_vol_record = np.array(tot_vol_record)
+print tot_vol_record.shape
 np.savetxt('tot_vol_record.dat',tot_vol_record,fmt='%4.0f %20.8G')
 
 

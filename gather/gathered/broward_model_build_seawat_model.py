@@ -38,8 +38,11 @@ dis = mfdis(mf,seawat.nrow,seawat.ncol,seawat.nlay,seawat.nper,nstp=nstp,delr=50
 bas = mfbas(mf,ibound=ibound,strt=strt,hnoflo=1.0e+10)
 #upw = mfupw(mf,laytyp=0,hk=4500.0,vka=4500.0)
 #nwt = mfnwt(mf,headtol=0.15,fluxtol=100000.0,maxiterout=500)
-lpf = mflpf(mf,laytyp=0,hk=4500.0,vka=4500.0)
-gmg = mfgmg(mf,mxiter=100,hclose=0.25,rclose=1000.0)
+hk = []
+for lay in seawat.layer_botm_names:
+    hk.append(seawat.ref_dir+lay+'_k.ref')
+lpf = mflpf(mf,laytyp=0,hk=hk,vka=hk,ilpfcb=0)
+gmg = mfgmg(mf,mxiter=100,hclose=0.35,rclose=1000.0)
 
 oc = mfoc(mf,words=['head','budget'],save_head_every=1,compact=True)
 
@@ -75,11 +78,12 @@ for sp in seawat.sp_len:
 timprs = np.cumsum(np.array(timprs))
 
 mt = mt3dms(seawat.root,'nam_mt3d',mf,external_path=seawat.ref_dir+'mod\\')
-btn = mtbtn(mt,ncomp=1,mcomp=0,tunit='DAY',lunit='FEET',munit='KG',prsity=0.2 ,icbund=icbund,sconc=[sconc],cinact=0.0,thkmin=1.0,\
+prsity = [0.15,0.2,0.25,0.25,0.1,0.1]
+btn = mtbtn(mt,ncomp=1,mcomp=0,tunit='DAY',lunit='FEET',munit='KG',prsity=prsity ,icbund=icbund,sconc=[sconc],cinact=0.0,thkmin=1.0,\
     ifmtcn=0,ifmtnp=0,ifmtrf=0,ifmtdp=0,savucn=True,nprs=-1,chkmas=True,timprs=timprs,dt0=500.0,mxstrn=10000,ttsmult=1.0,ttsmax=0)
 adv = mtadv(mt,mixelm=0,percel=1.0,nadvfd=0)
 dsp = mtdsp(mt,al=0.0,trpt=1.0,trpv=1.0) 
-gcg = mtgcg(mt,mxiter=500,iter1=50,isolve=3,ncrs=0,cclose=0.001,iprgcg=0)
+gcg = mtgcg(mt,mxiter=500,iter1=50,isolve=3,ncrs=0,cclose=0.005,iprgcg=0)
 
 ssm = mfaddoutsidefile(mt,'SSM','ssm',36)
 

@@ -2,8 +2,33 @@ from datetime import datetime,timedelta
 from dateutil.relativedelta import relativedelta
 import numpy as np
 import pandas
-'''just a container for model details
+'''just a container for model details and helper funcs
 '''
+
+ghb_dtype = np.dtype([('layer','i4'),('row','i4'),('column','i4'),('stage','f4'),('conductance','f4'),('aux','a20')])
+wel_dtype = np.dtype([('layer','i4'),('row','i4'),('column','i4'),('flux','f4'),('aux','a20')])
+
+
+def load_ascii_list(filename):    
+    print filename  
+    if 'ghb' in filename.lower():         
+        arr = np.genfromtxt(filename,dtype=ghb_dtype,comments='|')   
+    elif 'wel' in filename.lower(): 
+        arr = np.genfromtxt(filename,dtype=wel_dtype,comments='|')   
+    else:
+        raise Exception('unrecongnize list type: '+filename)
+    return arr
+
+def load_bin_list(filename):
+    if 'ghb' in filename.lower():         
+        arr = np.fromfile(filename,dtype=ghb_dtype)   
+    elif 'wel' in filename.lower():
+        arr = np.fromfile(filename,dtype=wel_dtype)   
+    else:
+        raise Exception('unrecongnize list type: '+filename)
+    return arr        
+
+
 
 
 class bro:
@@ -13,6 +38,7 @@ class bro:
 
     rch_unit,ets_unit = 54,55
     well_unit,ghb_unit = 56,57
+    swr_unit = 58
 
     start = datetime(year=1950,month=1,day=1)
     end = datetime(year=2012,month=5,day=31)

@@ -5,7 +5,10 @@ import zipfile
 import numpy as np
 import pandas
 
-dirs =  ['NEXRAD','PET','RET']
+
+
+#dirs =  ['NEXRAD','PET','RET']
+dirs =  ['NEXRAD']
 uzd = '_unzipped\\' 
 for d in dirs:
     print 'processing ',d
@@ -34,13 +37,16 @@ for d in dirs:
             raw = line.strip().split()
             dt = datetime.strptime(raw[1],'%m/%d/%Y')            
             val = float(raw[2])
-            pix = int(raw[0])
-            if pix not in pix_vals.keys():
-                pix_vals[pix] = [val]
-                pix_dts[pix] = [dt]
+            if val >= 0.0:
+                pix = int(raw[0])
+                if pix not in pix_vals.keys():
+                    pix_vals[pix] = [val]
+                    pix_dts[pix] = [dt]
+                else:
+                    pix_vals[pix].append(val)
+                    pix_dts[pix].append(dt)                
             else:
-                pix_vals[pix].append(val)
-                pix_dts[pix].append(dt)                
+                print 'negative val',dt
         f.close()
         failed = []
         for p1 in pix_dts.keys():
@@ -50,6 +56,8 @@ for d in dirs:
         if len(failed) > 0:
             print 'missing data',str(failed)
         df = pandas.DataFrame(pix_vals,index=pix_dts[p1])
+        df.to_csv('dataframes\\'+dfile+'.csv',index_label='datetime')
+        print df.shape
         dfs.append(df)
     df = pandas.concat(dfs,axis=0)
     df.to_csv(d+'.csv')

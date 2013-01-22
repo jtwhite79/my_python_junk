@@ -1,0 +1,3 @@
+import numpy as np
+
+np.savetxt('zone.ref',np.ones((50,151)),fmt='%3.0f')

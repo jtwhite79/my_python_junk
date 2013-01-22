@@ -112,10 +112,7 @@ class entry():
         self.dtype = dtype
         self.name = name
         self.required = required
-        #self.acceptable_dtype = [np.int,np.float32,str]
-        #if dtype not in self.acceptable_dtypes:
-        #    raise Exception('unacceptable dtype: '+str(dtype)+' for entry: '+str(name))
-       
+        
     @property
     def value(self):
         return self.__value
@@ -170,6 +167,23 @@ class pst():
         for key,value in self.DTYPES.iteritems():
             dts[key.lower()] = value
         self.DTYPES = dts
+
+
+    #--override set so that direct assignment can be used for the entry attributes
+    def __setattr__(self,name,value):
+        try:
+            attr = getattr(self,name)  
+        except:
+            self.__dict__[name] = value
+            return          
+        if isinstance(attr,entry):
+            attr.set_value(value)
+            self.__dict__[name] = attr
+            pass
+        else:
+            self.__dict__[name] = value
+               
+
 #----------------------------------------------------------
 #--IO stuff
 #----------------------------------------------------------   

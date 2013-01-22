@@ -25,9 +25,9 @@ DATE_FMT = '%d/%m/%Y'
 def write_date_file(file,start,end,interval):
     '''start and end are datetimes, interval is a timedelta
     '''
-    stime = '00:00:01'
+    stime = '00:01:00'
     etime = '00:00:00'
-    sec = timedelta(seconds=1)
+    sec = timedelta(minutes=1)
     fout = open(file,'w')  
     if interval == None:        
         start_string = (start+sec).strftime(DATE_FMT+' %H:%M:%S')
@@ -415,7 +415,7 @@ class tsproc(base_block):
     
     
     def get_mul_series_swr(self,rchgrp_list,swr_data_type,bin_file_name,\
-                            start_dt,series_name_list=None,\
+                            start_dt,series_name_list=None,swr_file_type='flow',\
                             context='all',\
                             block_operation='get_mul_series_swr',\
                             role='intermediate',prefix='',wght=None,
@@ -429,11 +429,16 @@ class tsproc(base_block):
                    'reachgroup list != series_name_list'
                                    
         suffix = 'or'
-        
-        this_item_keys = ['FILE','DATA_TYPE',\
+        if swr_file_type == 'flow':
+            this_item_keys = ['FILE','DATA_TYPE','FILE_TYPE',\
                           'DATE_1','TIME_1']
-        this_item_values = [bin_file_name,swr_data_type,start_date,\
+            this_item_values = [bin_file_name,swr_data_type,swr_file_type,start_date,\
                             start_time]                            
+        elif swr_file_type == 'stage':
+            this_item_keys = ['FILE','FILE_TYPE',\
+                          'DATE_1','TIME_1']
+            this_item_values = [bin_file_name,swr_file_type,start_date,\
+                            start_time]                       
         block_name = 'mul_swr'
         
         new_blocks = []
@@ -449,7 +454,7 @@ class tsproc(base_block):
                 this_series_name = series_name_list[idx]
             
             self.check_name(this_series_name)               
-            this_item_keys.extend(['REACH_GROUP_NUMBER','NEW_SERIES_NAME'])                          
+            this_item_keys.extend(['ITEM_NUMBER','NEW_SERIES_NAME'])                          
             
             this_item_values.extend([str(rchgrp_list[idx]),this_series_name])
             
@@ -466,7 +471,8 @@ class tsproc(base_block):
                                 SERIES,this_item_keys,this_item_values,'intermediate',
                                 wght=wght,max_min=max_min)             
         
-        self.blocks.append(this_block)                                
+        self.blocks.append(this_block)    
+        self.block_operations.append([block_operation])                           
         #--don't return the actual written block, only the dummy blocks
         return new_blocks
                     
@@ -685,7 +691,7 @@ class tsproc(base_block):
             
             self.blocks.append(this_block)
             new_blocks.append(this_block)
-            this_block_index = self.get_block_index(block.name)
+            this_block_index = self.get_block_index(block.name)            
             this_op = copy.deepcopy(self.block_operations[this_block_index])
             this_op.append(block_operation)            
             self.block_operations.append(this_op)     

@@ -77,22 +77,23 @@ for rnum,xname in zip(reach_nums,xsec_names):
 igeonumr = {flow.sp_end[0]:igeonumr}
 
 #--build dataset 11a and 11b entries - time invariant
-swr_xsec_path = 'xsec_navd\\'
-xsec_path = '..\\..\\_swr\\xsec_navd\\'
-igcndop = 3 #use K of the cell and leakance
-igeotype = 3
-gcndln = 250.0
-glk = 5.0
-gmann = 0.030
-data_11 = []
-for i,unique_xsec in enumerate(unique_xsec_names):
-    #--get the number of points in the xsection
-    f = open(xsec_path+unique_xsec,'r')
-    ngeopts = int(f.readline().strip().split()[3])
-    line1 = ' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.3G} {4:9.0F} {5:>39.3G} {6:9.3G}\n'.format(i+1,igeotype,igcndop,gmann,ngeopts,glk,gcndln)
-    line2 = 'OPEN/CLOSE ' + swr_xsec_path + unique_xsec + '\n'
-    data_11.append(line1+line2)
-data_11 = {flow.sp_end[0]:data_11}    
+#swr_xsec_path = 'xsec_navd\\'
+#xsec_path = '..\\..\\_swr\\xsec_navd\\'
+#igcndop = 3 #use K of the cell and leakance
+#igeotype = 3
+#gcndln = 250.0
+#glk = 2.5
+#gmann = 0.030
+#data_11 = []
+#for i,unique_xsec in enumerate(unique_xsec_names):
+#    #--get the number of points in the xsection
+#    f = open(xsec_path+unique_xsec,'r')
+#    ngeopts = int(f.readline().strip().split()[3])
+#    line1 = ' {0:9.0f} {1:9.0f} {2:9.0f} {3:9.3G} {4:9.0F} {5:>39.3G} {6:9.3G}\n'.format(i+1,igeotype,igcndop,gmann,ngeopts,glk,gcndln)
+#    line2 = 'OPEN/CLOSE ' + swr_xsec_path + unique_xsec + '\n'
+#    data_11.append(line1+line2)
+#--just pass a place holder - copy in ds 11 from calibration run
+data_11 = {flow.sp_end[0]:None}    
 
 f = open(flow.root+'.swr','w',0)
 f.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
@@ -101,7 +102,7 @@ f.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
 #-- ds-1 
 options = ['PRINT_SWR_TO_SCREEN','SAVE_AVERAGE_RESULTS','USE_NONCONVERGENCE_CONTINUE','SAVE_RIVER_PACKAGE 107',\
     'USE_INEXACT_NEWTON','USE_LAGGED_OPR_DATA','USE_DIAGONAL_SCALING','USE_RCM_REORDERING','USE_EXPLICIT_NEWTON_CORRECTION']
-ds_1 = swr.ds_1(len(reaches),iswrprgf=-101,iswrpstg=-102,iswrpqaq=-103,iswrpqm=-104,options=options)
+ds_1 = swr.ds_1(len(reaches),iswrprgf=-101,iswrpstg=-102,iswrpqaq=-103,iswrpqm=-104,options=options,iswrcbc=flow.swr_unit)
 ds_1.write(f)
 #ds_1.add_2_namefile(bro.modelname)
 
@@ -109,7 +110,7 @@ ds_1.write(f)
 ds_2 = swr.ds_2()
 ds_2.write(f)
 
-ds_3 = swr.ds_3()
+ds_3 = swr.ds_3(tola=0.0)
 ds_3.write(f)
 
 ds_4a = swr.ds_4a(reaches)

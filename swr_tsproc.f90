@@ -54,7 +54,7 @@ subroutine get_swr_series(ifail)
        iunit=0
        
        !set the file type 1 - flow binary file
-       ifiletype=1
+       ifiletype=0
        
 
 ! -- The GET_SERIES_SWR_FLOW block is first parsed.
@@ -100,12 +100,12 @@ subroutine get_swr_series(ifail)
          else if(aoption.eq.'DATA_TYPE')then
            call swr_read_data_type(ierr,idataidx,adatatype)
            if(ierr.ne.0) go to 9800
-         else if(aoption.eq.'REACH_GROUP_NUMBER')then
+         else if(aoption.eq.'ITEM_NUMBER')then
            call swr_read_reach_group_number(ierr,irchgrpnum)
            if(ierr.ne.0) go to 9800
-         !else if(aoption.eq.'FILE_TYPE')then
-         !  call swr_read_file_type(ierr,afiletype,ifiletype)
-         !  if(ierr.ne.0) go to 9800
+         else if(aoption.eq.'FILE_TYPE')then
+           call swr_read_file_type(ierr,afiletype,ifiletype)
+           if(ierr.ne.0) go to 9800
          else if(aoption.eq.'CONTEXT')then
            if(ixcon.ne.0)then
              call num2char(iline,aline)
@@ -143,19 +143,19 @@ subroutine get_swr_series(ifail)
 122      format('no CONTEXT keyword provided in ',a,' block in file ',a)
          go to 9800
        end if
-!       if(afiletype.eq.' ')then
-!         call addquote(infile,astring)
-!         write(amessage,125) trim(currentblock),trim(astring)
-!125      format('no FILE_TYPE keyword provided in ',a,' block in file ',a)
-!         go to 9800
-!       end if
+       if(afiletype.eq.' ')then
+         call addquote(infile,astring)
+         write(amessage,125) trim(currentblock),trim(astring)
+125      format('no FILE_TYPE keyword provided in ',a,' block in file ',a)
+         go to 9800
+       end if
        if(irchgrpnum.eq.-1)then
          call addquote(infile,astring)
          write(amessage,126) trim(currentblock),trim(astring)
-126      format('no REACH_GROUP_NUMBER keyword provided in ',a,' block in file ',a)
+126      format('no ITEM_NUMBER keyword provided in ',a,' block in file ',a)
          go to 9800
        end if
-       if(idataidx.eq.-1)then
+       if((idataidx.eq.-1).and.(ifiletype.eq.1))then
          call addquote(infile,astring)
          write(amessage,127) trim(currentblock),trim(astring)
 127      format('no DATA_TYPE keyword provided in ',a,' block in file ',a)
@@ -166,6 +166,12 @@ subroutine get_swr_series(ifail)
          write(amessage,128) trim(currentblock),trim(astring)
 128      format('no NEW_SERIES_NAME keyword provided in ',a,' block in file ',a)
          go to 9800
+       end if  
+       if((idataidx.ne.-1).and.(ifiletype.eq.2))then
+         call addquote(infile,astring)
+         write(amessage,127) trim(currentblock),trim(astring)
+129      format('DATA_TYPE should not be provided for stage FILE_TYPE')
+         go to 9800                    
       end if
         
       call date_check(ierr,yy1,mm1,dd1,hh1,nn1,ss1,yy2,mm2,dd2,hh2,nn2,ss2,  &
@@ -265,7 +271,7 @@ subroutine get_mul_swr_series(ifail)
        iseriesname=0
        
        !set the file type 1 - flow binary file
-       ifiletype=1
+       ifiletype=0
        
 
 ! -- The GET_SERIES_SWR_FLOW block is first parsed.
@@ -309,7 +315,7 @@ subroutine get_mul_swr_series(ifail)
          else if(aoption.eq.'DATA_TYPE')then
            call swr_read_data_type(ierr,idataidx,adatatype)
            if(ierr.ne.0) go to 9800
-         else if(aoption.eq.'REACH_GROUP_NUMBER')then
+         else if(aoption.eq.'ITEM_NUMBER')then
            if(isite.eq.0)then
              call num2char(iline,aline)
              call addquote(infile,astring)
@@ -318,6 +324,8 @@ subroutine get_mul_swr_series(ifail)
              ' of file ',a)
              go to 9800
            end if 
+           
+           
            
            jseries=jseries+1
 45         kseries=kseries+1
@@ -362,9 +370,9 @@ subroutine get_mul_swr_series(ifail)
            iseriesname=0
            isite=1
            
-         !else if(aoption.eq.'FILE_TYPE')then
-         !  call swr_read_file_type(ierr,afiletype,ifiletype)
-         !  if(ierr.ne.0) go to 9800
+         else if(aoption.eq.'FILE_TYPE')then
+           call swr_read_file_type(ierr,afiletype,ifiletype)
+           if(ierr.ne.0) go to 9800
          else if(aoption.eq.'CONTEXT')then
            if(ixcon.ne.0)then
              call num2char(iline,aline)
@@ -401,18 +409,28 @@ subroutine get_mul_swr_series(ifail)
 122      format('no CONTEXT keyword provided in ',a,' block in file ',a)
          go to 9800
        end if
-!       if(afiletype.eq.' ')then
-!         call addquote(infile,astring)
-!         write(amessage,125) trim(currentblock),trim(astring)
-!125      format('no FILE_TYPE keyword provided in ',a,' block in file ',a)
-!         go to 9800
-!       end if
+       if(afiletype.eq.' ')then
+         call addquote(infile,astring)
+         write(amessage,125) trim(currentblock),trim(astring)
+125      format('no FILE_TYPE keyword provided in ',a,' block in file ',a)
+         go to 9800
+       end if
 
-       if(idataidx.eq.-1)then
+       if((idataidx.eq.-1).and.(ifiletype.eq.1))then
          call addquote(infile,astring)
          write(amessage,127) trim(currentblock),trim(astring)
 127      format('no DATA_TYPE keyword provided in ',a,' block in file ',a)
          go to 9800  
+       end if  
+         
+       if((idataidx.ne.-1).and.(ifiletype.eq.2))then
+         call addquote(infile,astring)
+         write(amessage,127) trim(currentblock),trim(astring)
+129      format('DATA_TYPE should not be provided for stage FILE_TYPE')
+         go to 9800  
+       !if this is a stage file, reset the data index to 1
+       else
+           idataidx = 1           
        end if
        
       call date_check(ierr,yy1,mm1,dd1,hh1,nn1,ss1,yy2,mm2,dd2,hh2,nn2,ss2,  &
@@ -477,7 +495,7 @@ subroutine read_swr_binary_mul(ifail,jseries,irchgrpnum,ifiletype,idataidx,jjser
        character (len=10), intent(in), dimension(:) :: aname
        
        !number of items to read for each flow record
-       integer, parameter               ::flow_items = 14
+       integer                           ::flow_items = 14
            
           
        character (len=128) :: fname
@@ -500,97 +518,102 @@ subroutine read_swr_binary_mul(ifail,jseries,irchgrpnum,ifiletype,idataidx,jjser
        
        !get the day and second offset of the series 
        offday=numdays(1,1,1970,dd,mm,yy)
-       offsec=(((hh*24)+nn)*60)+ss
+       offsec=(((hh*60)+nn)*60)+ss
        
        iunit=nextunit() 
        open (unit=iunit,file=afile,status='old',form='binary',iostat=ios)
        if (ios /= 0) then
           write (amessage,*) 'could not open swr binary file: '//trim(adjustl(fname))
           goto 9999
-        end if       
-        select case (ifiletype)
-            !computational element flow data
-          case (1)
-            !read the number of reachgroups from the first of the file            
-            read (iunit) ncompele
+       end if 
+       
+       if (ifiletype.eq.1) then
+           flow_items = 14
+       else if (ifiletype.eq.2) then
+           flow_items = 1
+       end if         
+       
+        
+        !read the number of reachgroups from the first of the file            
+        read (iunit) ncompele
             
-            !--more error checking
-            do j=1,jseries                
-                write(*,*)'checking reachgroup: ',irchgrpnum(j)
-                if (irchgrpnum(j).lt.1) then          
-                  write (amessage,*) 'irchgrpnum number must be greater than zero'
-                  goto 9999
-                end if
-                if (irchgrpnum(j).gt.ncompele) then
-                  write (amessage,'(a,1x,i10)') 'irchgrpnum exceeds total number of reach groups ',ncompele
-                  goto 9999
-                end if
+        !--more error checking
+        do j=1,jseries                
+            write(*,*)'checking reachgroup: ',irchgrpnum(j)
+            if (irchgrpnum(j).lt.1) then          
+                write (amessage,*) 'irchgrpnum number must be greater than zero'
+                goto 9999
+            end if
+            if (irchgrpnum(j).gt.ncompele) then
+                write (amessage,'(a,1x,i10)') 'irchgrpnum exceeds total number of reach groups ',ncompele
+                goto 9999
+            end if
+        end do
+            
+        !read the file once to determine length 
+        iterm = 0
+        allocate(flow(flow_items))
+        do
+            read (iunit,iostat=ios) tottime, dt, kper, kstp, swrstp
+            if (ios /= 0) exit   
+            iterm = iterm + 1                        
+            do i = 1, ncompele
+            read (iunit,iostat=ios) flow                                            
             end do
+        end do    
             
-            !read the file once to determine length 
-            iterm = 0
-            allocate(flow(flow_items))
-            do
-              read (iunit,iostat=ios) tottime, dt, kper, kstp, swrstp
-              if (ios /= 0) exit   
-              iterm = iterm + 1                        
-              do i = 1, ncompele
-                read (iunit,iostat=ios) flow                                            
-              end do
-            end do    
-            
-            !--allocate series for each reachgroup
-            do j=1,jseries              
-              k=jjseries(j)               
-              allocate(series(k)%days(iterm),series(k)%secs(iterm),stat=ierr)
-              if(ierr.ne.0)then
-                write(amessage,550)
-550             format('cannot allocate memory for another time series.')
-                go to 9999
-              end if  
-              allocate(series(k)%val(iterm),stat=ierr)
-              if(ierr.ne.0)then
-                write(amessage,550)
-                go to 9999
-              end if
-              series(k)%active=.true.
-              series(k)%name=aname(j)
-              series(k)%type='ts'
-              series(k)%nterm=iterm                
-            end do
-            
-            allocate(dvalue(ncompele))           
-            rewind(unit=iunit,iostat=ierr)            
+        !--allocate series for each reachgroup
+        do j=1,jseries              
+            k=jjseries(j)               
+            allocate(series(k)%days(iterm),series(k)%secs(iterm),stat=ierr)
             if(ierr.ne.0)then
-              write(amessage,370) trim(astring)
-370           format('cannot rewind swr binary file ',a)             
-              go to 9999
-            end if            
-            read (iunit) ncompele  
+            write(amessage,550)
+550             format('cannot allocate memory for another time series.')
+            go to 9999
+            end if  
+            allocate(series(k)%val(iterm),stat=ierr)
+            if(ierr.ne.0)then
+            write(amessage,550)
+            go to 9999
+            end if
+            series(k)%active=.true.
+            series(k)%name=aname(j)
+            series(k)%type='ts'
+            series(k)%nterm=iterm                
+        end do
             
-            iterm = 0            
-            do j=1,jseries
-                do
-                  read (iunit,iostat=ios) tottime, dt, kper, kstp, swrstp
-                  if (ios /= 0) exit
-                  call swr_tottime2daysec(tottime,idays,isecs)
-                  idays = idays + offday
-                  isecs = isecs + offsec
+        allocate(dvalue(ncompele))           
+        rewind(unit=iunit,iostat=ierr)            
+        if(ierr.ne.0)then
+            write(amessage,370) trim(astring)
+370           format('cannot rewind swr binary file ',a)             
+            go to 9999
+        end if            
+        read (iunit) ncompele  
+            
+        iterm = 0            
+        do j=1,jseries
+            do
+                read (iunit,iostat=ios) tottime, dt, kper, kstp, swrstp
+                if (ios /= 0) exit
+                call swr_tottime2daysec(tottime,idays,isecs)
+                idays = idays + offday
+                isecs = isecs + offsec
                                                       
-                  do i = 1, ncompele
-                    read (iunit,iostat=ios) flow            
-                    dvalue(i) = flow(idataidx)
-                  end do
-                  iterm=iterm+1
-                  do i=1,jseries
-                    series(jjseries(i))%days(iterm) = idays  
-                    series(jjseries(i))%secs(iterm) = isecs 
-                    series(jjseries(i))%val(iterm) = dvalue(irchgrpnum(i))   
-                  end do                                                    
-                end do                 
-             end do
-             deallocate (flow,dvalue)
-       end select
+                do i = 1, ncompele
+                read (iunit,iostat=ios) flow            
+                dvalue(i) = flow(idataidx)
+                end do
+                iterm=iterm+1
+                do i=1,jseries
+                series(jjseries(i))%days(iterm) = idays  
+                series(jjseries(i))%secs(iterm) = isecs 
+                series(jjseries(i))%val(iterm) = dvalue(irchgrpnum(i))   
+                end do                                                    
+            end do                 
+            end do
+            deallocate (flow,dvalue)
+                                  
        
        do j=1,jseries
          aaname = series(jjseries(j))%name
@@ -630,6 +653,7 @@ subroutine read_swr_binary(ifail,irchgrpnum,ifiletype,idataidx,afile,aname,yy,mm
        
        !number of items to read for each flow record
        integer, parameter               ::flow_items = 14
+      
            
           
        character (len=128) :: fname
@@ -642,7 +666,7 @@ subroutine read_swr_binary(ifail,irchgrpnum,ifiletype,idataidx,afile,aname,yy,mm
        integer (kind=4) :: kper, kstp, swrstp, outtimes, ierr
        integer (kind=4) :: idays,isecs,thisy,thism,thisd,thish,thisn,thiss
        integer (kind=4) :: offday,offsec
-       real (kind=8), dimension(:), allocatable :: stage
+       real (kind=8)    :: stage
        real (kind=8), dimension(:), allocatable :: flow   
        real (kind=8) :: tottime, swrtime, dt, rdays,rsecs
        integer (kind=8) :: i, k, j
@@ -717,7 +741,7 @@ subroutine read_swr_binary(ifail,irchgrpnum,ifiletype,idataidx,afile,aname,yy,mm
               do i = 1, ncompele
                 read (iunit,iostat=ios) flow            
                 
-                if (i == irchgrpnum.and.irchgrpnum.ne.-999) then
+                if (i.eq.irchgrpnum.and.irchgrpnum.ne.-999) then
                   !write (*,'(2(e15.9,","),3(i10,","),12(e15.9,:","))') &
                   !  tottime, dt, kper, kstp, swrstp, flow
                   dvalue = flow(idataidx)
@@ -734,6 +758,57 @@ subroutine read_swr_binary(ifail,irchgrpnum,ifiletype,idataidx,afile,aname,yy,mm
             end do 
 
             deallocate (flow)
+            
+            case (2) 
+                !read the number of reachgroups from the first of the file            
+                read (iunit) ncompele
+            
+                !read the file once to determine length 
+                iterm = 0                
+                do
+                  read (iunit,iostat=ios) tottime, dt, kper, kstp, swrstp
+                  iterm = iterm + 1
+                  if (ios /= 0) exit              
+                  do i = 1, ncompele
+                    read (iunit,iostat=ios) stage
+                    if (i.eq.irchgrpnum) then
+                        dvalue = stage
+                    end if                                                
+                    
+                  end do                  
+                end do   
+                 
+                !allocate a temporary series
+                call alloc_tempseries(ierr,iterm)
+                rewind(unit=iunit,iostat=ierr)
+                !close(iin)
+                !open (unit=iin,file=afile,status='old',form='binary',iostat=ios)
+                if(ierr.ne.0)then
+                  write(amessage,370) trim(astring)                  
+                  go to 9999
+                end if
+                !re-read number of reachgroups
+                read (iunit) ncompele  
+                iterm = 0                              
+                do
+                  read (iunit,iostat=ios) tottime, dt, kper, kstp, swrstp
+                  if (ios /= 0) exit              
+                  call swr_tottime2daysec(tottime,idays,isecs)
+                  idays = idays + offday
+                  isecs = isecs + offsec
+                  
+                  dvalue = -999.9
+                  do i = 1, ncompele
+                    read (iunit,iostat=ios) stage
+                    if (i.eq.irchgrpnum) then
+                        dvalue = stage
+                    end if                                                                    
+                  end do                  
+                  iterm=iterm+1
+                  tempseries%days(iterm)=idays
+                  tempseries%secs(iterm)=isecs
+                  tempseries%val(iterm)=dvalue
+                end do               
        end select
        
        
@@ -941,6 +1016,8 @@ subroutine swr_read_file_type(ifail,afiletype,ifiletype)
       !    ifiletype = 2
       if(trim(afiletype).eq.'flow')then
          ifiletype = 1
+      else if(trim(afiletype).eq.'stage')then
+          ifiletype = 2
       else
          call num2char(iline,aline)
          call addquote(infile,astring)
