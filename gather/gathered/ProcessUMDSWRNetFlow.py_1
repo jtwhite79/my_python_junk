@@ -90,7 +90,7 @@ def accumulateData( output_dates, sim_dates, sim_data, fracTarget ):
 
 def processObservations( output_inflow, output_outflow ):
     output_obs = np.empty( (output_inflow.shape[0]), np.float )
-    output_obs.fill( Missing )   
+    output_obs.fill( Missing )
     nobs = 0
     for idx,[inf,outf] in enumerate( zip( output_inflow, output_outflow ) ):
         if inf != Missing and outf != Missing:
@@ -100,7 +100,7 @@ def processObservations( output_inflow, output_outflow ):
 
 def removeUnpairedData( obs, sim ):
     revised_sim = np.empty( (obs.shape[0]), np.float )
-    revised_sim.fill( Missing )   
+    revised_sim.fill( Missing )
     for idx,o in enumerate( obs ):
         if o != Missing:
             revised_sim[idx] = sim[idx]
@@ -113,7 +113,7 @@ def saveData(f, ctag, tdates, tdata):
     ctag = ctag.replace( ",", "" )
     ctag = ctag.replace( "at", "" )
     if len(ctag) > 10:
-        ctag = ctag[-10:]
+        ctag = ctag[:10]
     for [d,v] in zip( tdates, tdata ):
         if v == Missing:
             continue

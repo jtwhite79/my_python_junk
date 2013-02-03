@@ -51,6 +51,8 @@ def fac2real_list():
     assert os.path.exists(factor_filename),'factor file not found: '+str(factor_filename)
 
 
+    
+
     #--load the factors file
     pp_names,factor_map = load_factors(factor_filename)
     pass
@@ -65,9 +67,11 @@ def fac2real_list():
     #    if h.upper() != 'NONE':
     #        usecols.append(i)
     #pt_data = np.loadtxt(f,usecols=usecols)
-    model_dir = 'UMD.03\\ref\\'
+    model_dir = 'UMD.03\\ref\\'        
     model_input_names = ['UMD_HK_L1.ref','UMD_HK_L2.ref','UMD_HK_L3.ref']
     base_names = ['ref\\UMD_HK_L1_base.ref','ref\\UMD_HK_L2_base.ref','ref\\UMD_HK_L3_base.ref']
+    lake_mask = np.loadtxt(model_dir+'UMD_HIGHKLAKE.ref')
+    lake_k = 100000.0
     t = 1
     for params,base_name,input_name in zip(pt_data.transpose(),base_names,model_input_names):
         #--load the base K array
@@ -82,6 +86,7 @@ def fac2real_list():
                 val = np.cumsum(params[idxs] * facs)[-1]
                 mult[i,j] = val        
         mult *= base
+        mult[np.where(lake_mask==1)] = lake_k
         #np.savetxt(model_dir+'test'+str(t)+'.ref',mult,fmt=' %20.8E')                            
         np.savetxt(model_dir+input_name,mult,fmt=' %20.8E')                            
         t += 1    

@@ -3,6 +3,17 @@ import pandas
 import pst_handler as ph
 
 pst = ph.pst('umd03.pst')
+blu_fix = ['petm02','petm07','petm08','petm09']
+for pidx,par in pst.parameter_data.iterrows():
+    for fix in blu_fix:        
+        if par['parnme'].startswith(fix):
+            pst.parameter_data.parval1[pidx] = 0.0
+            pst.parameter_data.partrans[pidx] = 'fixed'
+    pass
+pst.reconcile_prior_2_pars()
+pst.update()
+pst.write_pst('umd03_blufixed.pst')
+
 obs = pst.observation_data
 obs.index = pandas.MultiIndex.from_arrays((obs.obsnme,obs.obgnme))
 res = df = pandas.read_csv('umd03.res',sep='\s+',index_col=[0,1])

@@ -29,9 +29,11 @@ def load_bin_list(filename):
     return arr        
 
 
-ascii_dirs = ['bro.02\\calibration\\flowlist\\','bro.02\\calibration\\seawatlist\\','bro.02\\prediction\\flowlist\\','bro.02\\prediction\\seawatlist\\']
-bin_dirs = ['bro.02\\calibration\\flowlistbin\\','bro.02\\calibration\\seawatlistbin\\','bro.02\\prediction\\flowlistbin\\','bro.02\\prediction\\seawatlistbin\\']
-
+ascii_dirs = ['..\\_model\\bro.03\\flowlist\\','..\\_model\\bro.03\\seawatlist\\','..\\_prediction\\bro.03.pred\\flowlist\\','..\\_prediction\\bro.03.pred\\seawatlist\\']
+bin_dirs = ['bro.03\\calibration\\flowlistbin\\','bro.03\\calibration\\seawatlistbin\\','bro.03\\prediction\\flowlistbin\\','bro.03\\prediction\\seawatlistbin\\']
+for b in bin_dirs:
+    if not os.path.exists(b):
+        os.mkdir(b)
 
 date_fmt = '%Y%m%d'
 

@@ -11,6 +11,86 @@ import shapefile
 import pws_class as pws
 
 
+#-----------------------------------------------------------
+#--load the shapefile with the wfield names added
+
+shp = shapefile.Reader('..\\_gis\\shapes\\pws_combine')
+records = shp.records()
+header = shp.dbfHeader()
+
+#--find the indexs of important attributes
+idxs = {}
+idxs['wname'] = None
+idxs['perm_no'] = None
+idxs['wfield'] = None
+idxs['utility'] = None
+idxs['status'] = None
+idxs['aban_year'] = None
+idxs['dril_year'] = None
+idxs['well_dia'] = None
+idxs['well_dep'] = None
+idxs['well_cas'] = None
+idxs['dpep_name'] = None
+
+for i,h in enumerate(header):
+    for k,v in idxs.iteritems():
+        if k.upper() == h[0].upper():           
+            idxs[k] = i
+            break
+for k,v in idxs.iteritems():
+    if v == None:
+        raise IndexError,'couldnt find index for '+k
+
+#--create well objects
+wells = []
+w_util = []
+shp_plist = []
+for i,r in enumerate(records):    
+    p,wn,wf = r[idxs['perm_no']],r[idxs['wname']],r[idxs['wfield']]    
+    u,s,a_yr = r[idxs['utility']],r[idxs['status']],r[idxs['aban_year']]    
+    d_yr,dia,dep = r[idxs['dril_year']],r[idxs['well_dia']],r[idxs['well_dep']]
+    cas = r[idxs['well_cas']]
+    depname = r[idxs['dpep_name']]
+    #--try to use dril and aban fields, otherwise...
+    try:
+        d_dt = datetime(year=int(d_yr),month=1,day=1)
+    except:
+        d_dt = datetime(year=1900,month=1,day=1)        
+    try:
+        a_dt = datetime(year=int(a_yr),month=1,day=1)
+    except:
+        a_dt = datetime(year=2012,month=5,day=31)        
+             
+    #--if the wfield attribute is blank...           
+    if len(wf) == 0:        
+        wf = 'all'        
+    #--a list of keys to make
+    wflist = wf.strip().split(',')
+    if 'all' not in wflist:
+        wflist.append('all')
+    for i,wf in enumerate(wflist):
+        wflist[i] = wf.upper()
+    #--create a pws object
+    w = pws.pws(p,wn,depname,u,dia,dep,cas,wfield=wflist,dril=d_dt,aban=a_dt)
+    wells.append(w) 
+    if u not in w_util:
+        w_util.append(u)
+      
+    if p not in shp_plist:
+        shp_plist.append(p)
+
+print len(wells)
+
+#--group wells by util name in a dict
+well_dict = {}
+for w in wells:
+    if w.util in well_dict.keys():
+        well_dict[w.util].append(w)
+    else:
+        well_dict[w.util] = [w]
+
+
+
 fname = 'source_spreadsheets\\Comp_Broward_Cens&Wtruse.xls'
 wb = xlrd.open_workbook(fname)
 
@@ -104,83 +184,7 @@ for k,[dt_list,val_list] in pop_data.iteritems():
 
 df = pandas.DataFrame(series_dict)
 
-#-----------------------------------------------------------
-#--load the shapefile with the wfield names added
 
-shp = shapefile.Reader('..\\_gis\\shapes\\pws_combine')
-records = shp.records()
-header = shp.dbfHeader()
-
-#--find the indexs of important attributes
-idxs = {}
-idxs['wname'] = None
-idxs['perm_no'] = None
-idxs['wfield'] = None
-idxs['utility'] = None
-idxs['status'] = None
-idxs['aban_year'] = None
-idxs['dril_year'] = None
-idxs['well_dia'] = None
-idxs['well_dep'] = None
-idxs['well_cas'] = None
-idxs['dpep_name'] = None
-
-for i,h in enumerate(header):
-    for k,v in idxs.iteritems():
-        if k.upper() == h[0].upper():           
-            idxs[k] = i
-            break
-for k,v in idxs.iteritems():
-    if v == None:
-        raise IndexError,'couldnt find index for '+k
-
-#--create well objects
-wells = []
-w_util = []
-shp_plist = []
-for i,r in enumerate(records):    
-    p,wn,wf = r[idxs['perm_no']],r[idxs['wname']],r[idxs['wfield']]    
-    u,s,a_yr = r[idxs['utility']],r[idxs['status']],r[idxs['aban_year']]    
-    d_yr,dia,dep = r[idxs['dril_year']],r[idxs['well_dia']],r[idxs['well_dep']]
-    cas = r[idxs['well_cas']]
-    depname = r[idxs['dpep_name']]
-    #--try to use dril and aban fields, otherwise...
-    try:
-        d_dt = datetime(year=int(d_yr),month=1,day=1)
-    except:
-        d_dt = datetime(year=1900,month=1,day=1)        
-    try:
-        a_dt = datetime(year=int(a_yr),month=1,day=1)
-    except:
-        a_dt = datetime(year=2012,month=5,day=31)        
-             
-    #--if the wfield attribute is blank...           
-    if len(wf) == 0:        
-        wf = 'all'        
-    #--a list of keys to make
-    wflist = wf.strip().split(',')
-    if 'all' not in wflist:
-        wflist.append('all')
-    for i,wf in enumerate(wflist):
-        wflist[i] = wf.upper()
-    #--create a pws object
-    w = pws.pws(p,wn,depname,u,dia,dep,cas,wfield=wflist,dril=d_dt,aban=a_dt)
-    wells.append(w) 
-    if u not in w_util:
-        w_util.append(u)
-      
-    if p not in shp_plist:
-        shp_plist.append(p)
-
-print len(wells)
-
-#--group wells by util name in a dict
-well_dict = {}
-for w in wells:
-    if w.util in well_dict.keys():
-        well_dict[w.util].append(w)
-    else:
-        well_dict[w.util] = [w]
 
 #--match population titles with well util attributes
 d_range = pandas.DateRange(pws.M_START,pws.M_END,offset=pandas.DateOffset())

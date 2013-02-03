@@ -139,17 +139,26 @@ class entry():
             try:
                 self.__value = np.int(value)
             except:
-                raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
+                if self.required:
+                    raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
+                else:
+                    print 'Warning - unable to cast '+str(value)+' to type '+str(self.dtype)+' for non-required entry '+str(self.name)
         elif self.dtype == F:
             try:
                 self.__value = np.float(value)
             except:
-                raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
+                if self.required:
+                    raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
+                else:
+                    print 'Warning - unable to cast '+str(value)+' to type '+str(self.dtype)+' for non-required entry '+str(self.name)
         elif self.dtype == S:
-            try:
+            try:                
                 self.__value = str(value).lower()
             except:
-                raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
+                if self.required:
+                    raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
+                else:
+                    print 'Warning - unable to cast '+str(value)+' to type '+str(self.dtype)+' for non-required entry '+str(self.name)
         else:
             raise Exception('unsupported dtype: '+str(self.dtype))
 
@@ -206,6 +215,7 @@ class pst():
         rep = False
         section_dict = {}
         section_entries = {}
+        secrtion_required = {}
         section_order = []
         #--parse and build
         lines = PST_BASE.split('\n')
@@ -217,7 +227,7 @@ class pst():
             #--if this is a control marker, then set req as False
             if line.startswith('*'):                           
                 section_dict[last] = {'parameters':pst_list,'required':req_list,'repeatable':rep}
-                section_entries[last] = entries
+                section_entries[last] = entries                
                 section_order.append(line)
                 last = line 
                 pst_list = []
@@ -237,13 +247,13 @@ class pst():
                         if r.startswith('['):
                             rq = False                                    
                         req_list[-1].append(rq)
-                        if r.endswith(']'):
-                            rq = True                    
+                        #if r.endswith(']'):
+                        #    rq = True                    
                         r = r.replace('[','')
                         r = r.replace(']','')
                         #--this is the only place in the whole damn class that needs upper
                         if r in self.DTYPES.keys():
-                            e = entry(None,dtype=self.DTYPES[r],name=r)
+                            e = entry(None,dtype=self.DTYPES[r],name=r,required=rq)
                             entries[r] = e
                         else:
                             #  'warning',r,'not found in DTYPES'
@@ -278,7 +288,7 @@ class pst():
         '''read a non-repeatable section - set the entry instance values
         '''
         l_count = 0
-        params = self.structure[section_marker]['parameters']
+        params = self.structure[section_marker]['parameters']        
         while True:
             line_start_pointer = f.tell()
             line = f.readline().strip().lower()
@@ -288,8 +298,8 @@ class pst():
                 f.seek(line_start_pointer)
                 return       
             raw = self.parse_line(line,section_marker)
-            for r,p in zip(raw,params[l_count]):                                  
-               self.sections[section_marker][p].set_value(r)              
+            for r,p in zip(raw,params[l_count]):                                                
+                self.sections[section_marker][p].set_value(r)                              
             l_count += 1                                                
                              
     def read_pst_repeatable_section(self,f,section_marker):
@@ -468,7 +478,7 @@ class pst():
             pars = self.parse_pi_equation(pi_eq)['parnme']
             missing = False
             for p in pars:
-                if p not in par_names:
+                if p not in par_names or self.parameter_data.partrans[self.parameter_data.parnme==p] in ['fixed','tied']:
                     missing = True 
                     break 
             if missing:

@@ -4,7 +4,7 @@ import numpy as np
 import pandas
 
 import shapefile
-import bro
+from bro import flow as bro
 if bro.pandas_freq != '1M':
     raise Exception("must change time delta")
 

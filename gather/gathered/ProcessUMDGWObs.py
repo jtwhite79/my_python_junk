@@ -5,8 +5,8 @@ import shutil
 import math
 import gc
 import operator
-#from operator import itemgetter
 from datetime import datetime,timedelta
+import xml.etree.ElementTree as xml
 import numpy as np
 import MFArrayUtil as au
 import MFData as mfd
@@ -56,16 +56,6 @@ def DailyStatistics(obs,sim):
         rmse = math.sqrt( rmse )
     return me, mae, rmse, npairs 
 
-def sort_table(table, cols, directions=False):
-    """ sort a table by multiple columns
-        table: a list of lists (or tuple of tuples) where each inner list 
-               represents a row
-        cols:  a list (or tuple) specifying the column numbers to sort by
-               e.g. (1,0) would sort by column 1, then by column 0
-    """
-    for [col,direction] in reversed(zip(cols,directions)):
-        table = sorted(table, key=operator.itemgetter(col),reverse=direction)
-    return table
 
 #preliminary figure specifications
 import pylab as pl
@@ -90,7 +80,38 @@ mpl.rcParams['ytick.labelsize']  = ticksize
 Missing = 9999.
 ft2m = 1.0 / 3.28081
 
+#--file names
+#--model ref files
+IBOUND_file = os.path.join( '..', 'REF', 'UMD_IBOUND.ref' )
+DIS_file = os.path.join( '..', 'UMD.dis' )
+
+#--read base xml data
+xml_file = os.path.join( '..', 'xml', 'GWHead.xml' )
+tree = xml.parse(xml_file)
+root = tree.getroot()
+HeadFile = root.find('HeadFile').text
+ObsFile = root.find('ObsFile').text
+start_date = datetime.strptime(root.find('StartDate').text,'%m/%d/%Y')
+end_date = datetime.strptime(root.find('EndDate').text,'%m/%d/%Y')
+child = root.find('InputUnits')
+if child != None:
+    cunits = child.text
+else:
+    cunits = 'meters'
+child = root.find('OutputUnits')
+if child != None:
+    cunits = child.text
+unit_conv = 1.0
+child = root.find('OutputConversion')
+if child != None:
+    unit_conv = float(child.text)
+#--determine the number of head sites
+num_sites = 0
+for gwhead in root.findall('gwhead'):
+    num_sites += 1
+
 #--get command line arguments
+HeadBaseName = os.path.basename( HeadFile )
 ResultsDir = os.path.join( '..', 'Results' )
 narg = len(sys.argv)
 iarg = 0
@@ -102,80 +123,22 @@ if narg > 1:
             try:
                 iarg += 1
                 ResultsDir = sys.argv[iarg]
+                #--replace path in HeadFile with the value passed from the command line
+                HeadFile = os.path.join( ResultsDir, HeadBaseName )
                 print 'command line arg: -resultsdir = ', ResultsDir
             except:
                 print 'cannot parse command line arg: -resultsdir'
 
-#--file names
-#--locations of observation locations
-station_file = 'nwis_head_obs_location.csv'
-#--model ref files
-IBOUND_file = os.path.join( '..', 'REF', 'UMD_IBOUND.ref' )
-DIS_file = os.path.join( '..', 'UMD.dis' )
-#--observation well data
-gw_smp_file = os.path.join( '..', 'obsref','head', 'All_NWIS_GW.smp' )
-#--model results
-head_file = os.path.join( ResultsDir, 'UMD.hds' )
-#--output files
-gw_loc_file = os.path.join( ResultsDir, 'mod2obs_loc.dat' )
-gw_sum_file = os.path.join( ResultsDir, 'gw_sum_file.dat' )
-#--make sure output directories exist
-OutputDir = os.path.join( ResultsDir, 'Figures', 'Obs' )
-umdutils.TestDirExist([os.path.join( ResultsDir,'Figures','dir.tst' ),os.path.join( OutputDir, 'dir.tst' )])
-#--simulation dates
-start_date = datetime.strptime( "19960101", "%Y%m%d") + timedelta(hours=12)
-end_date = datetime.strptime( "20101231", "%Y%m%d") + timedelta(hours=12)
-on_date = start_date
-plot_dates = []
-plot_dates.append( on_date )
-while on_date < end_date:
-    on_date += timedelta(days=1)
-    plot_dates.append( on_date )
-plot_dates = np.array( plot_dates )
 
-#--open smp file
-smp = pestUtil.smp(gw_smp_file,load=False,date_fmt='%m/%d/%Y')
-
-#--site information
-sites_header = []
-sites = []
-sites_dict = {}
-f = open(station_file, 'r')
-for idx,line in enumerate( f ):
-    line = line.rstrip('\n')
-    t = line.split(',')
-    #--create site_header
-    if idx == 0:
-        for j in xrange(0,len(t)):
-            sites_header.append( t[j] )
-            sites_dict[t[j]] = j
-        continue
-    #--determine if any duplicate stations -- only keep the first instance
-    idup = 0
-    on_site_no = t[sites_dict['SITE_NO']]
-    for tt in sites:
-        if tt[sites_dict['SITE_NO']] == on_site_no:
-            idup = 1
-            print 'duplicate: {0}'.format( on_site_no )
-            break
-    if idup == 1:
-        continue
-    #--append t to sites
-    sites.append( t )
-f.close()
-
-#sort data in the y and then x direction
-#sites.sort(key=operator.itemgetter(sites_dict['Y_UTM'],sites_dict['X_UTM']))
-sites = sort_table(sites, (sites_dict['Y_UTM'],sites_dict['X_UTM']), (True,False))
-
-num_sites = len( sites )
-sites = np.array( sites )
+print 'processing head data from...{0}\nFor the period from {1} to {2}'.format( HeadFile, start_date, end_date )
+print '  for {0} head stations'.format( num_sites )
 
 #--read discretization data
 offset,nlay,nrow,ncol,delr,delc = mfd.load_dis_file(DIS_file)
 xedge,yedge = mfd.edge_coordinates(nrow,ncol,delr,delc)
 #--open head file
-headObj = mfb.MODFLOW_Head(nlay,nrow,ncol,head_file)
+headObj = mfb.MODFLOW_Head(nlay,nrow,ncol,HeadFile)
+times = headObj.get_time_list()
 #--read ibound
 ib = au.loadArrayFromFile(nrow,ncol,IBOUND_file)
 #--read the top of layer 1
@@ -188,10 +151,19 @@ for k in xrange(0,nlay):
     bot_file = os.path.join( '..', 'REF', 'UMD_BOTM_L{0}.ref'.format( k+1 ))
     temp = au.loadArrayFromFile(nrow,ncol,bot_file)
     bot[k+1,:,:] = np.copy( temp )
-#--open summary file
-f = open(gw_loc_file, 'w')
-fs = open(gw_sum_file, 'w')
-fs.write( 'NO. WID SITE_NAME            X_UTM           Y_UTM      LAYER        ROW     COLUMN  LAND_SURF_ELEV      SCREEN_TOP   SCREEN_BOTTOM       LAYER_TOP    LAYER_BOTTOM         ME        MAE       RMSE     NPAIRS\n' )
+
+#--make sure output directories exist
+OutputDir = os.path.join( ResultsDir, 'Figures', 'HeadObs' )
+umdutils.TestDirExist([os.path.join( ResultsDir,'Figures','dir.tst' ),os.path.join( OutputDir, 'dir.tst' )])
+#--simulation dates
+on_date = start_date
+plot_dates = []
+plot_dates.append( on_date )
+while on_date < end_date:
+    on_date += timedelta(days=1.)
+    plot_dates.append( on_date )
+plot_dates = np.array( plot_dates )
+
 #--initialize figure and figure/plot counters
 ifigure = 1
 iplot = 1
@@ -200,83 +172,120 @@ fig = Make_NewFigure()
 #--matplotlib date specification
 years, months = mdates.YearLocator(), mdates.MonthLocator()  #every year, every month
 yearsFmt = mdates.DateFormatter('%Y')
-#--determine layer, row, column location and plot simulated and observed data
+
+#--open smp file
+smp = pestUtil.smp(ObsFile,load=False,date_fmt='%m/%d/%Y')
+#--process each station in the xml file
 iwell = 0
-for idx,site in enumerate(sites):
-    #--locate observation well
-    x = float(site[sites_dict['X_UTM']])
-    y = float(site[sites_dict['Y_UTM']])
-    SITE_NAME = site[sites_dict['SITE_NAME']]
-    v = mfd.subtract_offset([[x,y]],offset)
-    irow,icol = mfd.get_row_col(nrow,ncol,xedge,yedge,v[0][0],v[0][1])
-    iuse = 1
-    if irow*icol == 0:
-        iuse = 0
-    if ib[irow,icol] < 1:
-        iuse = 0
-    if iuse < 1:
-        continue
-    screen_top = float( site[sites_dict['SCREEN_TOP_FT']] )
-    ilay = -11
-    find_pt = False
-    if screen_top == Missing:
-        ilay = 0
-        screen_top = Missing
-        screen_bot = Missing
-        avg_screen = Missing
+pct_lay = np.empty( (nlay), np.float )
+active_gwobs = []
+active_gwobs_stats = []
+for idx,gwhead in enumerate( root.findall('gwHead') ):
+    station = gwhead.attrib['name']
+    print 'Locating {0} in the model grid'.format( station )
+    coordType = gwhead.find('coordType').text
+    #--determine the location of the well
+    if coordType.lower() == 'model':
+        #--convert to zero based
+        irow = int( gwhead.find('row').text ) - 1
+        icol = int( gwhead.find('column').text ) - 1
+    elif coordType.lower() == 'site':
+        x = float( gwhead.find('coordX').text )
+        y = float( gwhead.find('coordY').text )
+        v = mfd.subtract_offset([[x,y]],offset)
+        irow,icol = mfd.get_row_col(nrow,ncol,xedge,yedge,v[0][0],v[0][1])
+    c = gwhead.find('layer')
+    if c != None:
+        ilay = int( gwhead.find('layer').text ) - 1
     else:
-        screen_top  = bot[0,irow,icol] - screen_top * ft2m
-        cscreen_bot = site[sites_dict['SCREEN_BOTTOM_FT']]
-        try:
-            screen_bot = max( bot[0,irow,icol] - float( cscreen_bot ) * ft2m, bot[nlay,irow,icol] )
-            if screen_top < screen_bot:
-                #t = screen_top
-                screen_top = screen_bot
-                #screen_bot = t
-            if screen_top == screen_bot:
-                find_pt = True
-            elif screen_top == bot[nlay,irow,icol]:
-                fnd_pt = True
-                screen_bot = screen_top
-            else:
-                pct_lay = np.zeros( (nlay), np.float )
-                max_pct = 0.0
-                for k in xrange(0,nlay):
-                    if screen_top <= bot[k+1,irow,icol]:
-                        continue
-                    tl = min( screen_top, bot[k,irow,icol] )
-                    bl = max( screen_bot, bot[k+1,irow,icol] )
-                    pct_lay[k] = ( tl - bl ) / ( screen_top - screen_bot )
-                    if pct_lay[k] > max_pct:
-                        max_pct = pct_lay[k]
-                        ilay = k
-                    #print '   ***', k+1, tl, bl, pct_lay[k], screen_top, screen_bot, bot[k,irow,icol], bot[k+1,irow,icol]
-                    if screen_bot >= bot[k+1,irow,icol]:
-                        break
-        except:
-            find_pt = True
-        #--find layer corresponding to screen_top (which equals screen_bot)
-        if find_pt == True:
-           for k in xrange(0,nlay):
-               if screen_top >= bot[k+1,irow,icol]:
-                   ilay = k
-                   break
-    #--determine if the well intecepts the model
-    if ilay < 0:
-        #continue
+        dmult = 1.0
+        c1 = gwhead.find('depthMult')
+        if c1 != None:
+            dmult = float( gwhead.find('depthMult').text )
+        #--top and bottom of screen provided
+        #  determine the layer with the maximum percentage of screen
+        top = bot[0,irow,icol]
         ilay = -11
+        c1 = gwhead.find('depthTop')
+        if c1 != None:
+            z0 = top - float( gwhead.find('depthTop').text ) * dmult
+            z1 = top - float( gwhead.find('depthBot').text ) * dmult
+            pct_lay.fill( 0.0 )
+            max_pct = 0.0
+            for k in xrange(0,nlay):
+                if z0 <= bot[k+1,irow,icol]:
+                    continue
+                tl = min( z0, bot[k,irow,icol] )
+                bl = max( z1, bot[k+1,irow,icol] )
+                pct_lay[k] = ( tl - bl ) / ( z0 - z1 )
+                if pct_lay[k] > max_pct:
+                    max_pct = pct_lay[k]
+                    ilay = k
+                #print '   ***', k+1, tl, bl, pct_lay[k], z0, z1, bot[k,irow,icol], bot[k+1,irow,icol]
+                if z1 >= bot[k+1,irow,icol]:
+                    break
+        #--single screen elevation specified
+        #  determine the layer containing the specified elevation
+        else:
+            z = top - float( gwhead.find('depth').text ) * dmult
+            for k in xrange(0,nlay):
+                if z >= bot[k+1,irow,icol]:
+                    ilay = k
+                    break
+    #--determine if the well is in an active portion of the model domain    
+    useWell = True
+    if irow*icol == 0:
+        useWell = False
+    if ib[irow,icol] < 1:
+        useWell = False
+    if ilay < 0 or ilay+1 > nlay:
+        useWell = False
+    if useWell == False:
+        print '  Observation well {0} is in an inactive model cell'.format( station )
+        continue
+    #--deptermine if observation data should be processed
+    processObs = False
+    child = gwhead.find('readObs')
+    if child != None:
+        processObs = bool( child.text )
+    active_gwobs.append( [station,ilay,irow,icol,processObs] )
+
+#--read data and plot data for active wells
+iwell = 0
+for idx,t in enumerate( active_gwobs ):
+    station = t[0]
+    ilay = int( t[1] )
+    irow = int( t[2] )
+    icol = int( t[3] )
+    processObs = bool( t[4] )
+    print 'Processing head data for {0}'.format( station )
+    #--read observed data
+    nobs = 0
+    if processObs == True:
+        #--get the smp file data
+        print '  ...reading observation data from smp file'
+        records = smp.load(site=station)
+        for record in records:
+            a = np.copy( records[record] )
+            #nobs = a.shape[0]
+        for t in a[:,1]:
+            t *= unit_conv
+        for d in a[:,0]:
+            if d >= start_date and d <= end_date:
+                nobs += 1
     #--increment well counter
     iwell += 1
-    #--get the smp file data
-    records = smp.load(site=SITE_NAME)
-    nobs = 0
-    for record in records:
-        a = np.copy( records[record] )
-        nobs = a.shape[0]
     #--read the simulated data
+    print '  ...reading simulated data'
     inode = headObj.get_nodefromrcl(irow+1,icol+1,ilay+1)
-    success = headObj.rewind_file()
-    sim = headObj.get_gage(inode)
+    #success = headObj.rewind_file()
+    #ce1 = headObj.get_gage(inode)
+    ce1 = headObj.get_time_gage(inode)
+    nt =  np.shape(ce1)[0]
+    sim = np.zeros( (nt,2), np.float )
+    for jdx in xrange(0,nt):
+        sim[jdx,0] = ce1[jdx,0]
+        sim[jdx,1] = ce1[jdx,1] * unit_conv
     #--plot the data
     ax = fig.add_subplot(nplots,1,iplot)
     #--plot the observed data
@@ -298,47 +307,46 @@ for idx,site in enumerate(sites):
             cstats = 'ME {0: 5.3f} MAE {1: 5.3f} RMSE {2: 5.3f} Pairs {3}'.format( me, mae, rmse, npairs )
         else:
             cstats = 'Pairs {0}'.format( npairs )
+    #--append to stats list
+    active_gwobs_stats.append( [nobs,npairs,me,mae,rmse] )
     #--legends and axes
     leg = ax.legend(loc='best',ncol=1,labelspacing=0.25,columnspacing=1,\
                     handletextpad=0.5,handlelength=2.0,numpoints=1)
     leg._drawFrame=False
-    ctxt = '{0} Layer {1:3d} Row {2:3d} Column {3:3d} LSE {4: 5.2f}'.format( SITE_NAME, ilay+1, irow+1, icol+1, bot[0,irow,icol] ) 
+    ctxt = '{0} Layer {1:3d} Row {2:3d} Column {3:3d} LSE {4: 5.2f} Aquifer bottom {5: 5.2f}'.format( station, ilay+1, irow+1, icol+1, bot[0,irow,icol]*unit_conv, bot[nlay,irow,icol]*unit_conv ) 
     ax.text(0.0,1.01,ctxt,horizontalalignment='left',verticalalignment='bottom',size=7,transform=ax.transAxes)
     ax.text(1.0,1.01,cstats,horizontalalignment='right',verticalalignment='bottom',size=7,transform=ax.transAxes)
     ax.xaxis.set_major_locator(years), ax.xaxis.set_minor_locator(months)
     ax.xaxis.set_major_formatter(yearsFmt)
     ax.set_xlim(start_date, end_date)
-    ax.set_ylabel( 'Elevation, in meters' )
+    ax.set_ylabel( 'Elevation, in {0}'.format( cunits ) )
     iplot += 1
-    if iplot > nplots or idx == num_sites-1:
+    if iplot > nplots or idx == len( active_gwobs ) - 1:
         ax.set_xlabel( 'Year' )
         fout = os.path.join( OutputDir, 'UMD_HeadObs_{0:03d}.png'.format(ifigure) )
         fig.savefig(fout,dpi=300)
         print 'created...', fout
         #--clear memory
-        headObj = None
+        SWRObj = None
         mpl.pyplot.close('all')
         gc.collect()
-        #--reinitialize the head file object
-        headObj = mfb.MODFLOW_Head(nlay,nrow,ncol,head_file)
         #--reinitialize the figure
         fig = Make_NewFigure()
-        #mpl.pyplot.clf()
         #--update figure and plot counters
         ifigure += 1
         iplot = 1
-    #--write data to files
-    #--mod2obs file
-    f.write( '{0:10s} {1:15.7g} {2:15.7g} {3:10d} {4:10d} {5:10d}\n'.format(SITE_NAME,x,y,ilay+1,irow+1,icol+1) )
-    #--summary file
-    k = ilay
-    if k < 0:
-        k = nlay - 1
-    fs.write( '{0:3d} {1:3d} {2:10s} {3:15.7g} {4:15.7g} {5:10d} {6:10d} {7:10d} {8:15.7g} {9:15.7g} {10:15.7g} {11:15.7g} {12:15.7g} {13: 10.3f} {14: 10.3f} {15: 10.3f} {16:10d}\n'.format(idx,iwell,SITE_NAME,x,y,ilay+1,irow+1,icol+1, bot[0,irow,icol], screen_top, screen_bot, bot[k,irow,icol], bot[k+1,irow,icol], me, mae, rmse, npairs ) )
 
-    
-
-#--close the MOD2OBS location file
+stats_file = os.path.join( ResultsDir, 'UMD_GroundwaterStats.csv' )
+f = open(stats_file, 'w')
+f.write('"Well","Layer","Row","Column","Number of observations","Number of pairs","Mean error, in {0}","Mean absolute error in {1}","Root mean squared error in {2}"\n'.format(cunits,cunits,cunits) )
+for idx,[t1,t2] in enumerate(zip(active_gwobs,active_gwobs_stats)):
+    #--determine if any observation data is available
+    if int( t2[0] ) < 1:
+        continue
+    f.write( '{0},{1},{2},{3},{4},{5},'.format( t1[0],t1[1],t1[2],t1[3],t2[0],t2[1] ) )
+    if int( t2[1] ) > 0:
+        f.write( '{0},{1},{2}'.format( t2[2],t2[3],t2[4] ) )
+    else:
+        f.write( '--,--,--' )
+    f.write( '\n' )
 f.close()
-
-fs.close()

@@ -107,8 +107,13 @@ def removeUnpairedData( obs, sim ):
     return revised_sim
 
 def saveData(f, ctag, tdates, tdata):
-    ctag = ctag.replace( "  ", " " )
-    ctag = ctag.replace( " ", "_" )
+    ctag = ctag.replace( "  ", "" )
+    ctag = ctag.replace( " ", "" )
+    ctag = ctag.replace( "-", "" ) 
+    ctag = ctag.replace( ",", "" )
+    ctag = ctag.replace( "at", "" )
+    if len(ctag) > 10:
+        ctag = ctag[-10:]
     for [d,v] in zip( tdates, tdata ):
         if v == Missing:
             continue
@@ -144,7 +149,7 @@ SaveSimData = False
 TimeSample = None
 
 #--read base xml data
-xml_file = os.path.join( '..', 'xml', 'SWNetFlow_rename.xml' )
+xml_file = os.path.join( '..', 'xml', 'SWNetFlow.xml' )
 tree = xml.parse(xml_file)
 root = tree.getroot()
 ctag = 'SWRPoolFile'
@@ -240,6 +245,7 @@ else:
 inflow  = np.empty( (len(sim_dates)), np.float )
 outflow = np.empty( (len(sim_dates)), np.float )
 sim     = np.empty( (len(sim_dates)), np.float )
+sim_rg  = np.empty( (len(sim_dates)), np.float )
 
 #--process each station in the xml file
 for idx,swbudget in enumerate( root.findall('swbudget') ):
@@ -279,15 +285,18 @@ for idx,swbudget in enumerate( root.findall('swbudget') ):
         pool_name = childitem.text
         for pool_childitem in pool_root.findall('pool'):
             if pool_childitem.attrib['name'] == pool_name:
-                pool_number = int( pool_childitem.find('poolNumber').text )
-                print 'Station {0}...processing "{1}" pool - SWR pool number {2}'.format(station, pool_childitem.attrib['name'], pool_number )
-                break
-        #read simulated data
-        SWRObj = mfb.SWR_Record(-1,SWRFlowFile)
-        ce1 = SWRObj.get_gage(pool_number)
-        #process each item
-        for jdx in swrdata_index:
-            sim = dataAdd(sim_dates,sim,sim_dates[0:ce1.shape[0]],ce1[:,jdx])
+                rg_child = pool_childitem.find('reachGroups')
+                for rg in rg_child.findall('reachGroupItem'):
+                    rg_number = int( rg.find('reachGroup').text )
+                    print 'Station {0}...processing "{1}" pool - SWR reach group number {2}'.format(station, pool_childitem.attrib['name'], rg_number )
+                    sim_rg.fill( Missing )
+                    #read simulated data
+                    SWRObj = mfb.SWR_Record(-1,SWRFlowFile)
+                    ce1 = SWRObj.get_gage(rg_number)
+                    #process each item
+                    for jdx in swrdata_index:
+                        sim_rg = dataAdd(sim_dates,sim_rg,sim_dates[0:ce1.shape[0]],ce1[:,jdx])
+                    sim = dataAdd(sim_dates,sim,sim_dates[0:sim_rg.shape[0]],sim_rg)
     if processInflow == False:
         inflow.fill( 0.0 )
     #--average the inflow, outflow, and simulated data appropriately
@@ -300,10 +309,10 @@ for idx,swbudget in enumerate( root.findall('swbudget') ):
     output_sim = removeUnpairedData( output_obs, output_sim )
     #--save the data
     if SaveObsData == True:
-        ctag = '{0}'.format( station )
+        ctag = '{0}o'.format( station )
         saveData(fobsout, ctag, output_dates, output_obs)
     if SaveSimData == True:
-        ctag = '{0}'.format( station )
+        ctag = '{0}s'.format( station )
         saveData(fsimout, ctag, output_dates, output_sim)
 
 if SaveObsData == True:

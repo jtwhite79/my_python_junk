@@ -71,7 +71,7 @@ def dataAdd(outtime,data0,intime,indata):
             outdata[ipos] += v
     return outdata
 
-def accumulateData( output_dates, sim_dates, sim_data, fracTarget ):
+def accumulateData( output_dates, sim_dates, sim_data, fracTarget, unit_conv ):
     noutdates = output_dates.shape[0]
     output_data = np.empty( (noutdates), np.float )
     output_data.fill( Missing )
@@ -83,7 +83,7 @@ def accumulateData( output_dates, sim_dates, sim_data, fracTarget ):
         if d > output_dates[jdx]:
             frac = iv / icount
             if frac > fracTarget:
-                output_data[jdx] = vsum / (iv * 60. * 60. * 24. )
+                output_data[jdx] = unit_conv * vsum / ( iv )
             jdx   += 1
             icount = 0.0
             iv     = 0.0
@@ -95,7 +95,7 @@ def accumulateData( output_dates, sim_dates, sim_data, fracTarget ):
     #--save final sum
     frac = iv / icount
     if frac > fracTarget:
-        output_data[jdx] = vsum / (iv * 60. * 60. * 24. )
+        output_data[jdx] = unit_conv * vsum / ( iv )
     #--return    
     return output_data
 
@@ -229,6 +229,19 @@ if child == None:
     FractionThreshold = 0.0
 else:
     FractionThreshold = float(child.text)
+#--units
+child = root.find('InputUnits')
+if child != None:
+    cunits = child.text
+else:
+    cunits = 'm$^3$/s'
+child = root.find('OutputUnits')
+if child != None:
+    cunits = child.text
+unit_conv = 1.0
+child = root.find('OutputConversion')
+if child != None:
+    unit_conv = float(child.text)
 #--output formats
 child = root.find('PlotData')
 if child != None:
@@ -301,6 +314,7 @@ else:
 inflow  = np.empty( (len(sim_dates)), np.float )
 outflow = np.empty( (len(sim_dates)), np.float )
 sim     = np.empty( (len(sim_dates)), np.float )
+sim_rg  = np.empty( (len(sim_dates)), np.float )
 
 #--initialize figure and figure/plot counters
 ifigure = 1
@@ -349,21 +363,25 @@ for idx,swbudget in enumerate( root.findall('swbudget') ):
         pool_name = childitem.text
         for pool_childitem in pool_root.findall('pool'):
             if pool_childitem.attrib['name'] == pool_name:
-                pool_number = int( pool_childitem.find('poolNumber').text )
-                print 'Station {0}...processing "{1}" pool - SWR pool number {2}'.format(station, pool_childitem.attrib['name'], pool_number )
-                break
-        #read simulated data
-        SWRObj = mfb.SWR_Record(-1,SWRFlowFile)
-        ce1 = SWRObj.get_gage(pool_number)
-        #process each item
-        for jdx in swrdata_index:
-            sim = dataAdd(sim_dates,sim,sim_dates[0:ce1.shape[0]],ce1[:,jdx])
+                rg_child = pool_childitem.find('reachGroups')
+                for rg in rg_child.findall('reachGroupItem'):
+                    rg_number = int( rg.find('reachGroup').text )
+                    print 'Station {0}...processing "{1}" pool - SWR reach group number {2}'.format(station, pool_childitem.attrib['name'], rg_number )
+                    sim_rg.fill( Missing )
+                    #read simulated data
+                    #SWRObj = mfb.SWR_Record(-1,SWRFlowFile)
+                    #ce1 = SWRObj.get_gage(rg_number)
+                    ce1 = SWRObj.get_time_gage(rg_number)
+                    #process each item
+                    for jdx in swrdata_index:
+                        sim_rg = dataAdd(sim_dates,sim_rg,sim_dates[0:ce1.shape[0]],ce1[:,jdx])
+                    sim = dataAdd(sim_dates,sim,sim_dates[0:sim_rg.shape[0]],sim_rg)
     if processInflow == False:
         inflow.fill( 0.0 )
     #--average the inflow, outflow, and simulated data appropriately
-    output_inflow = accumulateData( output_dates, sim_dates, inflow, FractionThreshold )
-    output_outflow = accumulateData( output_dates, sim_dates, outflow, FractionThreshold )
-    output_sim = accumulateData( output_dates, sim_dates, sim, FractionThreshold )
+    output_inflow = accumulateData( output_dates, sim_dates, inflow, FractionThreshold, unit_conv )
+    output_outflow = accumulateData( output_dates, sim_dates, outflow, FractionThreshold, unit_conv )
+    output_sim = accumulateData( output_dates, sim_dates, sim, FractionThreshold, unit_conv )
     #--calculate observed data
     nobs, output_obs = processObservations( output_inflow, output_outflow )
 #    for [t,d] in zip( output_dates, output_sim ):
@@ -407,7 +425,7 @@ for idx,swbudget in enumerate( root.findall('swbudget') ):
         ax.xaxis.set_major_locator(years), ax.xaxis.set_minor_locator(months)
         ax.xaxis.set_major_formatter(yearsFmt)
         ax.set_xlim(start_date, end_date)
-        ax.set_ylabel( r'Net discharge, in m$^3$/s' )
+        ax.set_ylabel( r'Net discharge, in {0}'.format( cunits ) )
         iplot += 1
         if iplot > nplots or idx == num_pools_obs-1:
             ax.set_xlabel( 'Year' )
@@ -415,7 +433,7 @@ for idx,swbudget in enumerate( root.findall('swbudget') ):
             fig.savefig(fout,dpi=300)
             print 'created...', fout
             #--clear memory
-            SWRObj = None
+            #SWRObj = None
             mpl.pyplot.close('all')
             gc.collect()
             #--reinitialize the figure

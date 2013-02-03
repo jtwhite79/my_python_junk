@@ -87,6 +87,18 @@ root = tree.getroot()
 SWRStageFile = root.find('SWRStageFile').text
 start_date = datetime.strptime(root.find('StartDate').text,'%m/%d/%Y')
 end_date = datetime.strptime(root.find('EndDate').text,'%m/%d/%Y')
+child = root.find('InputUnits')
+if child != None:
+    cunits = child.text
+else:
+    cunits = 'meters'
+child = root.find('OutputUnits')
+if child != None:
+    cunits = child.text
+unit_conv = 1.0
+child = root.find('OutputConversion')
+if child != None:
+    unit_conv = float(child.text)
 #--determine the number of stage sites
 num_sites = 0
 for swstage in root.findall('swstage'):
@@ -115,6 +127,11 @@ if narg > 1:
 print 'processing stage data from...{0}\nFor the period from {1} to {2}'.format( SWRStageFile, start_date, end_date )
 print '  for {0} stage stations'.format( num_sites )
 
+#--open swr stage file
+SWRObj = mfb.SWR_Record(0,SWRStageFile)
+itime  = SWRObj.get_item_number('totim')
+istage = SWRObj.get_item_number('stage')
+
 #--make sure output directories exist
 OutputDir = os.path.join( ResultsDir, 'Figures', 'StageObs' )
 umdutils.TestDirExist([os.path.join( ResultsDir,'Figures','dir.tst' ),os.path.join( OutputDir, 'dir.tst' )])
@@ -135,32 +152,46 @@ fig = Make_NewFigure()
 #--matplotlib date specification
 years, months = mdates.YearLocator(), mdates.MonthLocator()  #every year, every month
 yearsFmt = mdates.DateFormatter('%Y')
-
+#--summary data
+active_stageobs = []
+active_stageobs_stats = []
 #--process each station in the xml file
 for idx,swstage in enumerate( root.findall('swstage') ):
     station = swstage.attrib['name']
     reach = int( swstage.find('reach').text )
-    ObsFile = swstage.find('ObsFile').text
-    SITE_NAME = os.path.basename(ObsFile).replace('.smp','')
-    print SITE_NAME
-    print 'Processing stage data for...{0} - reach {1}'.format( station, reach )
-    #--get the smp file data
-    smp = pestUtil.smp(ObsFile,load=False,date_fmt='%m/%d/%Y')
-    records = smp.load(site=SITE_NAME)
     nobs = 0
-    for record in records:
-        a = np.copy( records[record] )
-        nobs = a.shape[0]
+    processObs = False
+    child = swstage.find('ObsFile')
+    if child != None:
+        processObs = True
+        ObsFile = child.text
+        #--test if smp file exists
+        smpExists = os.path.exists(ObsFile)
+        if smpExists == True:
+            SITE_NAME = os.path.basename(ObsFile).replace('.smp','')
+            print 'Reading observed data for {0}'.format( SITE_NAME )
+            #--get the smp file data
+            smp = pestUtil.smp(ObsFile,load=False,date_fmt='%m/%d/%Y')
+            records = smp.load(site=SITE_NAME)
+            for record in records:
+                a = np.copy( records[record] )
+                nobs = a.shape[0]
+            for t in a:
+                t[1] *= unit_conv
+        else:
+            print 'Specified smp file [{0}] does not exist'.format( os.path.basename(ObsFile) )
+    else:
+        print 'No observation data for {0}'.format( station )
+    print 'Processing stage data for...{0} - reach {1}'.format( station, reach )
     #--read the simulated data
-    SWRObj = mfb.SWR_Record(0,SWRStageFile)
-    itime  = SWRObj.get_item_number('totim')
-    istage = SWRObj.get_item_number('stage')
-    ce1 = SWRObj.get_gage(reach)
+    #SWRObj.rewind_file()
+    #ce1 = SWRObj.get_gage(reach)
+    ce1 = SWRObj.get_time_gage(reach)
     nt =  np.shape(ce1)[0]
     sim = np.zeros( (nt,2), np.float )
     for jdx in xrange(0,nt):
         sim[jdx,0] = ce1[jdx,itime]
-        sim[jdx,1] = ce1[jdx,istage]
+        sim[jdx,1] = ce1[jdx,istage] * unit_conv
     #--plot the data
     ax = fig.add_subplot(nplots,1,iplot)
     #--plot the observed data
@@ -182,17 +213,20 @@ for idx,swstage in enumerate( root.findall('swstage') ):
             cstats = 'ME {0: 5.3f} MAE {1: 5.3f} RMSE {2: 5.3f} Pairs {3}'.format( me, mae, rmse, npairs )
         else:
             cstats = 'Pairs {0}'.format( npairs )
+    #--append to stats list
+    active_stageobs.append( [station,reach] )
+    active_stageobs_stats.append( [nobs,npairs,me,mae,rmse] )
     #--legends and axes
     leg = ax.legend(loc='best',ncol=1,labelspacing=0.25,columnspacing=1,\
                     handletextpad=0.5,handlelength=2.0,numpoints=1)
     leg._drawFrame=False
-    ctxt = '{0} -- Reach {1:4d}'.format( SITE_NAME, reach ) 
+    ctxt = '{0} -- Reach {1:4d}'.format( station, reach ) 
     ax.text(0.0,1.01,ctxt,horizontalalignment='left',verticalalignment='bottom',size=7,transform=ax.transAxes)
     ax.text(1.0,1.01,cstats,horizontalalignment='right',verticalalignment='bottom',size=7,transform=ax.transAxes)
     ax.xaxis.set_major_locator(years), ax.xaxis.set_minor_locator(months)
     ax.xaxis.set_major_formatter(yearsFmt)
     ax.set_xlim(start_date, end_date)
-    ax.set_ylabel( 'Elevation, in meters' )
+    ax.set_ylabel( 'Elevation, in {0}'.format( cunits ) )
     iplot += 1
     if iplot > nplots or idx == num_sites-1:
         ax.set_xlabel( 'Year' )
@@ -200,7 +234,7 @@ for idx,swstage in enumerate( root.findall('swstage') ):
         fig.savefig(fout,dpi=300)
         print 'created...', fout
         #--clear memory
-        SWRObj = None
+        #SWRObj = None
         mpl.pyplot.close('all')
         gc.collect()
         #--reinitialize the figure
@@ -210,5 +244,24 @@ for idx,swstage in enumerate( root.findall('swstage') ):
         ifigure += 1
         iplot = 1
 
+stats_file = os.path.join( ResultsDir, 'UMD_StageStats.csv' )
+f = open(stats_file, 'w')
+f.write('"Station","Reach","SMP_TAG","Number of observations","Number of pairs","Mean error, in {0}","Mean absolute error in {1}","Root mean squared error in {2}"\n'.format(cunits,cunits,cunits) )
+for idx,[t1,t2] in enumerate(zip(active_stageobs,active_stageobs_stats)):
+    #--determine if any observation data is available
+    if int( t2[0] ) < 1:
+        continue
+    smp_tag = t1[0].replace('-','')
+    smp_tag = smp_tag.replace('HW','H')
+    smp_tag = smp_tag.replace('TW','T')
+    smp_tag = smp_tag.replace(' ','_')
+    #--write data
+    f.write( '{0},{1},{2},{3},{4},'.format( t1[0],t1[1],smp_tag,t2[0],t2[1] ) )
+    if int( t2[1] ) > 0:
+        f.write( '{0},{1},{2}'.format( t2[2],t2[3],t2[4] ) )
+    else:
+        f.write( '--,--,--' )
+    f.write( '\n' )
+f.close()
 
 

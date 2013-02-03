@@ -128,15 +128,17 @@ def prep():
         day += step
         d_count += 1
     wel_tpl = pandas.DataFrame(pdict,index=wel_name)
+    grouped = wel_tpl.groupby(level=0).last()   
     f = open('tpl\\wel.tpl','w')
     f.write('ptf ~\n')
-    wel_tpl.to_csv(f,index_label='wel_name')
+    grouped.to_csv(f,index_label='wel_name')
     f.close()
     wel_tpl.dtype = np.float64
     
     for i,col in enumerate(wel_tpl.columns):
         wel_tpl[col] = 1.0
-    wel_tpl.to_csv('par\\wel.dat',index_label='wel_name')
+    grouped = wel_tpl.groupby(level=0).last()
+    grouped.to_csv('par\\wel.dat',index_label='wel_name')
     #--generate markov series for the upper/lower and flux
     #--set the last entry to the max for the prediction
     flux_series = [float(flux)]
@@ -155,6 +157,7 @@ def prep():
         val = lower_series[-1] + (beta * innov)
         lower_series.append(val)  
     #lower_series = np.array(lower_series) - lower_flux
+    wnames = []
     for wname in wel_tpl.index:
         if wname == pred_name:
             wseries = np.zeros((len(lower_series)))
@@ -173,8 +176,10 @@ def prep():
             wel_tpl.ix[wname] = wseries - (lower_flux - upper_flux)
         elif 'flux' in wname:
             wel_tpl.ix[wname] = flux_series
-    
-    wel_tpl.to_csv('base\\wel.dat',index_label='wel_name')
+        wnames.append(wname)
+    grouped = wel_tpl.groupby(level=0).last()
+     
+    grouped.to_csv('base\\wel.dat',index_label='wel_name')
     #wel_tpl.dtype = np.float64
     
     #wel_tpl.ix['flux_1'].T.plot(legend=False)
@@ -224,72 +229,6 @@ def prep():
 
 
 
-#--random sampling
-##--first create normal distributions for the wells
-#upper_mean,upper_std = -500.0,10.0
-#lower_mean,lower_std = -5000.0,50.0
-#nper = len(grid.sp_start)
-#well_records = []
-#for id,hydro in zip(ids,hydros):
-#    if hydro == 3:
-#        rec = np.random.normal(lower_mean,lower_std,nper)
-#    if hydro == 1:
-#        rec = np.random.normal(upper_mean,upper_std,nper)
-#    rec = add_zeros(rec)
-#    well_records.append(rec)
-#well_records = np.array(well_records).transpose()
-#well_records[np.where(well_records>0.0)] = 0.0
-#mnw_ds2 = []
-#names = []
-#for id,r,c,top,bot,hydro in zip(ids,rows,cols,ztops,zbots,hydros):
-#    #--mnw 
-#    if hydro ==1:
-#        name = 'upper_'+str(id)
-#    else:
-#        name = 'lower_'+str(id)
-#    names.append(name)
-#    line_2a = '{0:20s}{1:10f}{2:>33s}\n'.format(name,-1,'#2a')
-#    mnw_ds2.append(line_2a)
-#    line_2b = '{0:20s}{1:10d}{2:10d}{3:10d}{4:10d} #2b\n'.format('THIEM',0,0,0,0)
-#    mnw_ds2.append(line_2b)
-#    line_2c = '{0:10.4f}{1:>53s}\n'.format(1.0,'#2c')
-#    mnw_ds2.append(line_2c)
-#    line_2d2 = ' {0:9.4f} {1:9.4f} {2:9.0f} {3:9.0f}{4:>26s}\n'.format(float(top),float(bot),int(float(r)),int(float(c)),'#2d-2\n')
-#    mnw_ds2.append(line_2d2) 
-
-#f_mnw = open(grid.modelname+'.mnw','w',0)
-#f_mnw.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
-#f_mnw.write(' {0:9.0f} {1:9.0f} {2:9.0f}\n'.format(len(ids),0,0))    
-#for line in mnw_ds2:
-#    f_mnw.write(line)
-
-#f_wel = open(grid.modelname+'.wel','w',0)
-#f_wel.write('# '+sys.argv[0]+' '+str(datetime.now())+'\n')
-#f_wel.write(' {0:9.0f} {1:9.0f} {2:9.0f}\n'.format(300,0,0))    
-#for i,slice in enumerate(well_records):
-#    lines = []
-#    for name,rate in zip(names,slice):
-#        lines.append('{0:20s}{1:15.4G}\n'.format(name,rate))
-#    f_mnw.write('{0:10d} {1:20s} {2:3d}\n'.format(len(lines),'#3 Stress Period',i+1))
-#    for line in lines:
-#        f_mnw.write(line)
-        
-#    lines = []
-#    for name,rate,row,col in zip(names,slice,rows,cols):
-#        if 'upper' in name:
-#            layers = upper_layers
-#        else:
-#            layers = lower_layers
-#        rate /= float(len(layers))
-#        for lay in layers:
-#            line = '{0:10d}{1:10d}{2:10d}{3:15.4E}  #{4:20s}\n'\
-#                .format(lay,int(float(row)),int(float(col)),rate,name)
-#            lines.append(line)
-#    f_wel.write('{0:10d}{1:10d} #{2:20s}{3:4d}\n'.format(len(lines),0,'stress period ',i+1))        
-#    for line in lines:
-#        f_wel.write(line)
-#f_mnw.close()
-#f_wel.close()
 
 if __name__ == '__main__':
     prep()

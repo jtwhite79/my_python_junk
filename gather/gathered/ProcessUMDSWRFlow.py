@@ -14,6 +14,8 @@ import MFBinaryClass as mfb
 import pestUtil
 import UMDUtils as umdutils
 
+no_data = 9999.
+
 def Make_NewFigure():
     fwid, fhgt = 7.00, 9.00
     flft, frgt = 0.075, 0.925
@@ -22,7 +24,8 @@ def Make_NewFigure():
     fig.subplots_adjust(wspace=0.25,hspace=0.25,left=flft,right=frgt,bottom=fbot,top=ftop)
     return fig
 
-def dataAdd(outtime,data0,intime,indata):
+def dataAdd(unit_conv,outtime,data0,intime,indata):
+    nobs = 0
     nouttime = outtime.shape[0]
     outdata = np.copy( data0 )
     for [d,v] in zip( intime, indata ):
@@ -31,17 +34,17 @@ def dataAdd(outtime,data0,intime,indata):
             continue
         elif ipos > nouttime - 1:
             break
-        if data0[ipos] == Missing:
-            outdata[ipos] = v
+        nobs += 1
+        if data0[ipos] == no_data:
+            outdata[ipos] = v * unit_conv
         else:
-            outdata[ipos] += v
-    return outdata
+            outdata[ipos] += v * unit_conv
+    return nobs, outdata
 
 def DailyMaskTime(outtime,intime,indata):
-    Missing = 9999.
     nouttime = outtime.shape[0]
     outdata = np.empty( (nouttime), np.float )
-    outdata.fill( Missing )
+    outdata.fill( no_data )
     for [d,v] in zip( intime, indata ):
         ipos = (d-outtime[0]).days
         if ipos < 0:
@@ -50,16 +53,15 @@ def DailyMaskTime(outtime,intime,indata):
             break
         outdata[ipos] = v
     #--mask data
-    return np.ma.masked_equal( outdata, Missing )
+    return np.ma.masked_equal( outdata, no_data )
 
 def DailyStatistics(obs,sim):
-    Missing = 9999.
     me = 0.0
     mae = 0.0
     rmse = 0.0
     npairs = 0
     for [o,s] in zip(obs,sim):
-        if o != Missing and s != Missing:
+        if o != no_data and s != no_data:
             npairs += 1
             me += (s - o)
             mae += abs( s - o )
@@ -92,9 +94,6 @@ mpl.rcParams['axes.labelsize']   = 8
 mpl.rcParams['xtick.labelsize']  = ticksize
 mpl.rcParams['ytick.labelsize']  = ticksize
 
-Missing = 9999.
-ft2m = 1.0 / 3.28081
-flow_mult = 1.0 / ( 60. * 60. * 60. )
 
 #--read base xml data
 xml_file = os.path.join( '..', 'xml', 'SWFlow.xml' )
@@ -110,6 +109,18 @@ if c != None:
 
 start_date = datetime.strptime(root.find('StartDate').text,'%m/%d/%Y')
 end_date = datetime.strptime(root.find('EndDate').text,'%m/%d/%Y')
+child = root.find('InputUnits')
+if child != None:
+    cunits = child.text
+else:
+    cunits = 'm$^3$/s'
+child = root.find('OutputUnits')
+if child != None:
+    cunits = child.text
+unit_conv = 1.0
+child = root.find('OutputConversion')
+if child != None:
+    unit_conv = float(child.text)
 #--determine the number of stage sites
 num_sites = 0
 for swflow in root.findall('swflow'):
@@ -137,6 +148,11 @@ if narg > 1:
 
 print 'processing stage data from...{0}\nFor the period from {1} to {2}'.format( SWRFlowFile, start_date, end_date )
 print '  for {0} discharge stations'.format( num_sites )
+
+#--open swr connection flow file
+SWRObj = mfb.SWR_Record(-2,SWRFlowFile)
+itime  = SWRObj.get_item_number('totim')
+iflow = SWRObj.get_item_number('flow')
 
 #--make sure output directories exist
 OutputDir = os.path.join( ResultsDir, 'Figures', 'FlowObs' )
@@ -171,8 +187,9 @@ for idx,swflow in enumerate( root.findall('swflow') ):
     if c != None:
         sim_mult = float( c.text )
     print 'Processing flow data for...{0} - reach {1}->{2}'.format( station, usreach, dsreach )
-    obs.fill( Missing )
+    obs.fill( no_data )
     processObs = False
+    nobs = 0
     child = swflow.find('ObsItems')
     if child != None:
         processObs = True
@@ -181,24 +198,25 @@ for idx,swflow in enumerate( root.findall('swflow') ):
             #--get the smp file data
             smpstation = os.path.basename(childitem.text).replace('.smp','')
             smp = pestUtil.smp(childitem.text,load=True,date_fmt='%m/%d/%Y')
-            obs = dataAdd(sim_dates,obs,smp.records[smpstation][:,0],smp.records[smpstation][:,1])
-    obs *= flow_mult
+            nobs, obs = dataAdd(unit_conv,sim_dates,obs,smp.records[smpstation][:,0],smp.records[smpstation][:,1])
+#    obs *= unit_conv
     #--read the simulated data
     if dsreach > 0:
-        SWRObj = mfb.SWR_Record(-2,SWRFlowFile)
-        itime  = SWRObj.get_item_number('totim')
-        iflow = SWRObj.get_item_number('flow')
-        ce1 = SWRObj.get_gage(rec_num=usreach,iconn=dsreach)
+        #SWRObj = mfb.SWR_Record(-2,SWRFlowFile)
+        #SWRObj.rewind_file()
+        #ce1 = SWRObj.get_gage(rec_num=usreach,iconn=dsreach)
+        ce1 = SWRObj.get_time_gage(rec_num=usreach,iconn=dsreach)
         nt =  np.shape(ce1)[0]
         sim = np.zeros( (nt,2), np.float )
         for jdx in xrange(0,nt):
             sim[jdx,0] = ce1[jdx,itime]
-            sim[jdx,1] = ce1[jdx,iflow] * flow_mult * -1. * sim_mult
+            sim[jdx,1] = ce1[jdx,iflow] * unit_conv * -1. * sim_mult
     #--plot the data
     ax = fig.add_subplot(nplots,1,iplot)
     #--plot the observed data
     if processObs == True:
-        ax.plot(pl.date2num(sim_dates),obs, color='b', linewidth=1.5, label='Observed')
+        temp = DailyMaskTime(sim_dates,sim_dates[0:obs.shape[0]],obs)
+        ax.plot(pl.date2num(sim_dates),temp, color='b', linewidth=1.5, label='Observed')
     #--plot the simulated data
     sim = DailyMaskTime(sim_dates,sim_dates[0:sim.shape[0]],sim[:,1])
     ax.plot(pl.date2num(sim_dates),sim, color='r', linewidth=0.75, label='Simulated')
@@ -208,7 +226,8 @@ for idx,swflow in enumerate( root.findall('swflow') ):
     mae = 0.0
     rmse = 0.0
     npairs = 0.0
-    if processObs == True:
+#    if processObs == True:
+    if nobs > 0:
         me, mae, rmse, npairs = DailyStatistics(obs,sim)
         if npairs > 0:
             cstats = 'ME {0: 5.3f} MAE {1: 5.3f} RMSE {2: 5.3f} Pairs {3}'.format( me, mae, rmse, npairs )
@@ -224,7 +243,7 @@ for idx,swflow in enumerate( root.findall('swflow') ):
     ax.xaxis.set_major_locator(years), ax.xaxis.set_minor_locator(months)
     ax.xaxis.set_major_formatter(yearsFmt)
     ax.set_xlim(start_date, end_date)
-    ax.set_ylabel( r'Discharge, in m$^3$/s' )
+    ax.set_ylabel( r'Discharge, in {0}'.format( cunits ) )
     iplot += 1
     if iplot > nplots or idx == num_sites-1:
         ax.set_xlabel( 'Year' )
@@ -232,7 +251,7 @@ for idx,swflow in enumerate( root.findall('swflow') ):
         fig.savefig(fout,dpi=300)
         print 'created...', fout
         #--clear memory
-        SWRObj = None
+        #SWRObj = None
         mpl.pyplot.close('all')
         gc.collect()
         #--reinitialize the figure

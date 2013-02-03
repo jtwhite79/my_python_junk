@@ -35,6 +35,10 @@ mpl.rcParams['ytick.labelsize']  = ticksize
 
 #--get command line arguments
 ResultsDir = os.path.join( '..', 'Results' )
+outputFrequency = 7
+startValue = 1
+cunits = 'feet'
+unit_conv = 3.28081
 narg = len(sys.argv)
 iarg = 0
 if narg > 1:
@@ -48,9 +52,33 @@ if narg > 1:
                 print 'command line arg: -resultsdir = ', ResultsDir
             except:
                 print 'cannot parse command line arg: -resultsdir'
+        elif basearg == '-outputfrequency':
+            try:
+                iarg += 1
+                outputFrequency = int( sys.argv[iarg] )
+                print 'command line arg: -outputfrequency = ', outputFrequency
+            except:
+                print 'cannot parse command line arg: -outputfrequency'
+        elif basearg == '-start':
+            try:
+                iarg += 1
+                startValue = int( sys.argv[iarg] )
+                print 'command line arg: -start = ', startValue
+            except:
+                print 'cannot parse command line arg: -start'
+        elif basearg == '-outputft':
+            cunits = 'feet'
+            unit_conv = 3.28081
+            print 'command line arg: -outputft'
+            print '                  will convert meters to feet'
+        elif basearg == '-outputm':
+            cunits = 'meters'
+            unit_conv = 1.00000
+            print 'command line arg: -outputm'
+            print '                  will keep results in meters (no conversion)'
 
 #--model start date
-start_date = datetime.strptime( "19960101", "%Y%m%d")
+start_date = datetime.strptime( "19960101", "%Y%m%d" )
 #--problem size
 nlay,nrow,ncol = 3,189,101
 #--read ibound
@@ -94,19 +122,29 @@ Xedge,Yedge = np.meshgrid(xedge,yedge)
 xmin,xmax = x0,x0+float(ncol)*dx
 ymin,ymax = y0,y0+float(nrow)*dy
 #--common data for each figure
-hdcontour  = np.arange(-1.5,2.5,0.5)  
-dtwcontour  = np.arange(-5.,5.,1.)  
+if unit_conv != 1.0:
+    hdcontour  = np.arange(0.,10.,1.) 
+    dtwcontour  = np.arange(0,15.,2.5)
+    hvmin,hvmax = -5.,10.
+    dtwvmin,dtwvmax = 0.,15.
+else:
+    hdcontour  = np.arange(0.,2.5,0.5) * unit_conv 
+    dtwcontour  = np.arange(0.,5.,1.) * unit_conv
+    hvmin,hvmax = -1.5,2.
+    dtwvmin,dtwvmax = 0.,5.
 #--create figures for each output time
 icount = 0
-iweek = 0
+iOutput = 0
 for idx,on_time in enumerate(mf_times):
-    #--only process every 7th value
+    #--only process every outputFrequency^th value
     icount += 1
-    if icount < 7:
+    if icount < outputFrequency:
         continue
     else:
         icount = 0
-        iweek += 1
+        iOutput += 1
+    if idx+1 < startValue:
+        continue
     #--file position
     iposition = long( times[idx,3] )
     #--read head data - final zeta surface
@@ -114,6 +152,10 @@ for idx,on_time in enumerate(mf_times):
     hd = np.copy( h[0,:,:] )
     dtw = np.copy( h[0,:,:] )
     dtw = model_lse - dtw
+    #--convert units
+    if unit_conv != 1.0:
+        hd  *= unit_conv
+        dtw *= unit_conv
     #--mask data in inactive areas
     hd  = np.ma.masked_where(ib<1,hd)
     dtw = np.ma.masked_where(ib<1,dtw)
@@ -129,21 +171,25 @@ for idx,on_time in enumerate(mf_times):
     cdate = datetime.strftime( on_date, '%m/%d/%Y' )
     #-Make figures
     #--head figure
-    output_name = os.path.join( OutputHeadsDir, 'Head_{0:05d}.png'.format( int( iweek ) ) )
+    output_name = os.path.join( OutputHeadsDir, 'Head_{0:05d}.png'.format( int( iOutput ) ) )
     print 'creating figure...{0}'.format( output_name )
     ztf = figure(figsize=(4.4, 6), facecolor='w')
     ztf.subplots_adjust(wspace=0.2,hspace=0.2,left=0.05,right=0.95,bottom=0.05,top=0.95)
     ax = ztf.add_subplot(1,1,1,aspect='equal')
-    ctitle = 'Groundwater head (m) on {0}'.format( cdate )
+    ctitle = 'Groundwater head ({0}) on {1}'.format( cunits, cdate )
     text(0.0,1.01,ctitle,horizontalalignment='left',verticalalignment='bottom',size=7,transform=ax.transAxes)
     #hp = ax.pcolor(Xedge,Yedge,hd,vmin=-1.5,vmax=2,cmap='jet_r',alpha=1.0,edgecolors='None')
-    hp = ax.imshow(np.flipud(hd),vmin=-1.5,vmax=2,cmap='jet_r',alpha=1.0,extent=[xmin,xmax,ymin,ymax])
+    hp = ax.imshow(np.flipud(hd),vmin=hvmin,vmax=hvmax,cmap='jet_r',alpha=1.0,extent=[xmin,xmax,ymin,ymax])
     au.polyline_plot( ax, hydrography, '0.25' )
     au.point_plot( ax, salinity_struc, marker='o', markersize=3, markeredgecolor='red', markerfacecolor='red' )
     au.point_plot( ax, df_struc, marker='s', markersize=3, markeredgecolor='blue', markerfacecolor='white' )
     au.point_plot( ax, pws, marker='o', markersize=1, markeredgecolor='black', markerfacecolor='black' )
     ch = ax.contour(xcell,ycell,hd,levels=hdcontour,colors='k',linewidths=0.5)
     ax.clabel(ch,inline=1,fmt='%5.1f',fontsize=6)
+    #--colorbar
+    cax=mpl.pyplot.axes([0.75,0.065,0.025,0.20])
+    mpl.pyplot.colorbar(hp,cax=cax,orientation='vertical')                                       
+    cax.set_title(cunits,size=8) 
     #--plot limits
     ax.set_xlim(xmin,xmax), ax.set_ylim(ymin,ymax)
     #--save the figure
@@ -152,21 +198,25 @@ for idx,on_time in enumerate(mf_times):
     mpl.pyplot.close('all')
     gc.collect()
     #--depth to water figure
-    output_name = os.path.join( OutputDTWDir, 'DTW_{0:05d}.png'.format( int( iweek ) ) )
+    output_name = os.path.join( OutputDTWDir, 'DTW_{0:05d}.png'.format( int( iOutput ) ) )
     print 'creating figure...{0}'.format( output_name )
     ztf = figure(figsize=(4.4, 6), facecolor='w')
     ztf.subplots_adjust(wspace=0.2,hspace=0.2,left=0.05,right=0.95,bottom=0.05,top=0.95)
     ax = ztf.add_subplot(1,1,1,aspect='equal')
-    ctitle = 'Depth to water (m) on {0}'.format( cdate )
+    ctitle = 'Depth to water ({0}) on {1}'.format( cunits,cdate )
     text(0.0,1.01,ctitle,horizontalalignment='left',verticalalignment='bottom',size=7,transform=ax.transAxes)
     #hp = ax.pcolor(Xedge,Yedge,dtw,vmin=-1.5,vmax=2,cmap='jet_r',alpha=1.0,edgecolors='None')
-    hp = ax.imshow(np.flipud(dtw),vmin=0,vmax=5,cmap='jet_r',alpha=1.0,extent=[xmin,xmax,ymin,ymax])
+    hp = ax.imshow(np.flipud(dtw),vmin=dtwvmin,vmax=dtwvmax,cmap='jet_r',alpha=1.0,extent=[xmin,xmax,ymin,ymax])
     au.polyline_plot( ax, hydrography, '0.25' )
     au.point_plot( ax, salinity_struc, marker='o', markersize=3, markeredgecolor='red', markerfacecolor='red' )
     au.point_plot( ax, df_struc, marker='s', markersize=3, markeredgecolor='blue', markerfacecolor='white' )
     au.point_plot( ax, pws, marker='o', markersize=1, markeredgecolor='black', markerfacecolor='black' )
     ch = ax.contour(xcell,ycell,dtw,levels=dtwcontour,colors='k',linewidths=0.5)
     ax.clabel(ch,inline=1,fmt='%5.1f',fontsize=6)
+    #--colorbar
+    cax=mpl.pyplot.axes([0.75,0.065,0.025,0.20])
+    mpl.pyplot.colorbar(hp,cax=cax,orientation='vertical')                                       
+    cax.set_title(cunits,size=8) 
     #--plot limits
     ax.set_xlim(xmin,xmax), ax.set_ylim(ymin,ymax)
     #--save the figure

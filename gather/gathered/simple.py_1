@@ -4,6 +4,7 @@ import numpy as np
 import pylab
 
 class grid:
+    pred_length = relativedelta(months=1)
     start = datetime(year=2013,month=1,day=1)
     end = datetime(year=2014,month=12,day=31)
     step = relativedelta(days=1)
@@ -13,9 +14,10 @@ class grid:
     while day < end:
         sp_start.append(day)
         day += step
-        sp_end.append(day - relativedelta(days=1))
-    pred_length = relativedelta(months=1)
+        sp_end.append(day)
+    
     sp_end[-1] = sp_start[-1] + pred_length
+    end += pred_length
     modelname = 'simple'
     nrow = 300
     ncol = 300
@@ -48,7 +50,6 @@ class grid:
     ibound_names = ['ref\\ibound.ref']
     for k in range(1,nlay):
         ibound_names.append('ref\\ibound_'+str(k+1)+'.ref')
-
     deltaxy = 100.0
     xmin,ymin = 0.0,0.0
     delr = np.zeros((ncol)) + deltaxy

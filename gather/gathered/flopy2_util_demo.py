@@ -1,10 +1,30 @@
+import sys
 import numpy as np
 from flopy2.modflow import *
-from flopy2.utils import util_2d,util_3d
+from flopy2.utils import util_2d,util_3d,util_list
+
 
 
 nlay,nrow,ncol = 3,20,40
 
+
+#--gen up some fake data
+nper = 4
+lrc = [['1',1.0,1],[2,2,2],[3,3,3]]
+#l = np.arange(1,100)
+#r = np.arange(1,100)
+#c = np.arange(1,100)
+#lrc = zip(l,r,c)
+#data3 = []
+#for i in range(1,100):
+#    data3.append('cell '+str(i))
+aux_strings = 1.0
+data1,data2 = '1.0',[[2.0] * len(lrc)] * nper
+ul = util_list.ulist(1,[lrc],[1.0],[aux_strings])
+#ul = util_list.ulist(nper,lrc,[data1],dtype=np.float32)
+print ul[0]
+print ul[-1]
+sys.exit()
 
 #--------------------------------------------------------------------
 #--util_2d

@@ -3,10 +3,10 @@ import copy
 import numpy as np
 import pandas
 import pestUtil as pu
-import bro
+from bro import flow
 
 #--model stress period date range
-m_range = bro.sp_end
+m_range = flow.sp_end
 
 #--merged daily smp files
 smp_dir = 'pws_smp_daily\\'
@@ -20,14 +20,14 @@ for i,sfile in enumerate(smp_files):
     df = smp.records
     df = df.astype(float)
     df = df.fillna(0.0)
-    df = df.resample(bro.pandas_freq,how=np.mean)
+    df = df.resample(flow.pandas_freq,how=np.mean)
     #--create dataframe that is aligned with model stress periods
     #--merge in the record and fill with 0.0
     df_mod = pandas.DataFrame({depname:np.NaN},index=m_range)
     df_mod = df_mod.combine_first(df)
     dfs_nofill.append(copy.deepcopy(df_mod))
       
-    df_mod = df_mod[bro.start:bro.end]    
+    df_mod = df_mod[flow.start:flow.end]    
 
     dfs.append(df_mod)
     smp.records = df_mod

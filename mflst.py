@@ -221,7 +221,7 @@ class mfbudget(lstbudget):
         self.cumu = {} 
         self.cumu_idxs = [22,40]
         self.flux_idxs = [63,80]   
-        self.ts_idxs = [56,60]
+        self.ts_idxs = [56,61]
         self.sp_idxs = [76,80] 
         self.tssp_lines = 0   
 

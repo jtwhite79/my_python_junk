@@ -36,12 +36,13 @@ tpl_lines.append(txt_fmt.format('none'))
 for i,h in enumerate(header):
     if i in par_cols:
         p = par_names[par_cols.index(i)]
-        lines[-1] += txt_fmt.format('UMD.01\\ref\\UMD_ETS_'+p+'.ref')
-        tpl_lines[-1] += txt_fmt.format('UMD.01\\ref\\UMD_ETS_'+p+'.ref')
+        lines[-1] += txt_fmt.format('UMD.03\\ref\\UMD_ETS_'+p+'.ref')
+        tpl_lines[-1] += txt_fmt.format('UMD.03\\ref\\UMD_ETS_'+p+'.ref')
     #else:
     #    lines[-1] += txt_fmt.format('none')
     #    tpl_lines[-1] += txt_fmt.format('none')
 pst_names = {}
+par_dict = {}
 for line in f:
     raw = line.strip().split(',')
     blu_codes.append(int(raw[blu_idx]))
@@ -59,6 +60,11 @@ for line in f:
             #par_name = par_names[pidx]+'{0:02.0f}'.format(par_count[pidx])
             par_name = par_names[pidx]+'{0:02.0f}'.format(blu_codes[-1])
             par_name = par_name.replace('_','')
+            grp = par_names[pidx][:-2]
+            if grp in par_dict.keys():
+                par_dict[grp].append(par_name)
+            else:
+                par_dict[grp] = [par_name]
             pst_names[par_name] = val
             if len(par_name) > 10:
                 par_name = par_name[len(par_name)-10:]               
@@ -90,11 +96,23 @@ f.close()
 pnames = pst_names.keys()
 pnames.sort()
 f = open('pst_components\\blu_params.dat','w')
-for p in pnames:
-    val = pst_names[p]
-    f.write(p.ljust(20)+'   log  factor  {0:20.8E}'.format(val)+'  1.0E-10   1.0E+10\n')    
-f.close()
+f_grp = open('pst_components\\blu_grps.dat','w')
+for grp,pnames in par_dict.iteritems():
+    f_grp.write(grp + '  relative  1.0e-2  0.0 switch  2.0 parabolic\n')
 
+    for p in pnames:
+        if 'PETM' in p and (p.endswith('02') or p.endswith('07') or p.endswith('08') or p.endswith('09')):
+            val = 0.0
+            ptrans = 'fixed'
+        else:        
+            val = pst_names[p]
+            ptrans = 'log'
+        if 'PSEG' in p:
+            ptrans = 'fixed'
+        f.write(p.ljust(20)+'  '+ptrans+'  factor  {0:20.8E}'.format(val)+'  1.0E-10   1.0E+10 '+grp+'  1.0  0.0  1 \n')    
+        
+f.close()
+f_grp.close()
 
 sys.exit()
 

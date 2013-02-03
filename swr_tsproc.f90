@@ -428,8 +428,7 @@ subroutine get_mul_swr_series(ifail)
          write(amessage,127) trim(currentblock),trim(astring)
 129      format('DATA_TYPE should not be provided for stage FILE_TYPE')
          go to 9800  
-       !if this is a stage file, reset the data index to 1
-       else
+       else if(ifiletype.eq.2) then
            idataidx = 1           
        end if
        

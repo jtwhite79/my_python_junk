@@ -341,7 +341,7 @@ class tsproc(base_block):
         if series_list == None:
             series_list = []
             for site in site_list:
-                series_list.append(prefix+site+suffix)
+                series_list.append(prefix+site[len(prefix):]+suffix)
         else:
             assert len(site_list) == len(series_list)
         this_item_keys = ['FILE']        

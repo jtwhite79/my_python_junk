@@ -43,7 +43,7 @@ pest_oblocks,pest_mblocks = [],[]
 
 #--stage sites
 stg_obs_file = 'UMD.03\\obsref\\stage\\All_DBHYDRO_stage.smp'
-stg_reach_file = 'setup_files\\UMD_StageStats.csv'
+stg_reach_file = 'setup_files\\UMD.03_StageStats.csv'
 f = open(stg_reach_file,'r')
 reach_dict = {}
 header = f.readline()

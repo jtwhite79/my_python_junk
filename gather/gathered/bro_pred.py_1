@@ -70,7 +70,7 @@ class seawat(bro):
     name = bro.dir+root
     ref_dir = root + 'ref\\'
     list_dir = root + 'list\\'
-    
+    icbnd_name = ref_dir+'icbnd.ref'
 
 
     top_name,ibound_name = ref_dir+'top_mod.ref',ref_dir+'ibound_CS.ref'
@@ -81,11 +81,10 @@ class seawat(bro):
         pass
     nrow,ncol = 411,501
     #--layer specific stuff
-    layer_botm_names = ['Q4','Q3','Q2','Q1','T3','T1']
-    #layer_botm_names = ['Q3','Q1','T1']
-    #layer_botm_names = ['T1']
+    layer_botm_names = ['Q4','Q3','Q2_1','Q2_2','Q2_3','Q2_4','Q1_1','Q1_2','Q1_3','Q1_4','T3','T1']
+    layer_k = [500.0,6.074e+3,1.2e+5,1.2e+5,1.2e+5,1.2e+5,1.2e+5,1.2e+5,1.2e+5,1.2e+5,500.0,500.0]        
     nlay = len(layer_botm_names)
-    ghb_layers = [1,2,3,4,5,6]
+    ghb_layers = [1,2,3,4,5,6,7,8,9,10,11,12]
     
     delr,delc = 500.0,500.0
     #offset = [728600.0,782850.0]

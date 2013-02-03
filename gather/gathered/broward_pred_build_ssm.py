@@ -81,6 +81,8 @@ riv_itype = 4
 riv_lrcconc = {}
 riv_lrcconc_fresh = {}
 for r,c,reach in zip(records['ROW'],records['COLUMN'],records['REACH']):
+    #if (r,c) in riv_lrcconc.keys():
+    #    print 'duplicate river cell:',r,c,reach
     line = get_ssm_line(1,r,c,swr_conc[reach],riv_itype)
     riv_lrcconc[(r,c)] = line
     line = get_ssm_line(1,r,c,0.0,riv_itype)
@@ -96,17 +98,17 @@ wel_itype = 2
 bnd_dir = seawat.list_dir
 bnd_files = os.listdir(bnd_dir)
 bnd_str = 'WEL'
-#wel_sp = {}
-wel_month = {}
+wel_sp = {}
+#wel_month = {}
 mxact_wel = None
 for bfile in bnd_files:
     if bnd_str in bfile.upper():
-        #dt_str = bfile.split('.')[0].split('_')[-1]
-        #print dt_str,'\r',
-        #dt = datetime.strptime(dt_str,'%Y%m%d')
-        #kper = list(seawat.sp_start).index(dt) + 1
-        month = int(bfile.split('.')[0].split('_')[1])
-        print month,'\r',
+        dt_str = bfile.split('.')[0].split('_')[-1]
+        print dt_str,'\r',
+        dt = datetime.strptime(dt_str,'%Y%m%d')
+        kper = list(seawat.sp_start).index(dt) + 1
+        #month = int(bfile.split('.')[0].split('_')[1])
+        #print month,'\r',
         wel_array = np.loadtxt(bnd_dir+bfile,usecols=[0,1,2])
         active = []
         
@@ -114,29 +116,34 @@ for bfile in bnd_files:
             line = get_ssm_line(lay,row,col,fresh_conc,wel_itype)
             active.append(line)
                                 
-        #wel_sp[kper] = active
-        wel_month[month] = active
+        wel_sp[kper] = active
+        #wel_month[month] = active
         mxact_wel = max(mxact_wel,len(active))
 
 
 #--load a list of GHB locs and concentrations
 print 'loading ghb info'
 ghb_itype = 5
-sea_val,brackish_val = 2,5
+sea_val = 2
+intcoast_val = [51,52,53,54,55]
 ghb_lrcconc = []
-for i in range(flow.nrow):
-    for j in range(flow.ncol):
-        ib_val = flow.ibound[i,j]
-        if ib_val > 1:
-            if ib_val == sea_val:
+for bfile in bnd_files:
+    if 'GHB' in bfile.upper():
+        f = open(bnd_dir+bfile,'r')
+        for line in f:
+            raw = line.strip().split()
+            l,r,c, = int(raw[0]),int(raw[1]),int(raw[2])
+            loc = int(raw[-1].replace('#',''))
+            if loc == sea_val:
                 conc = sea_conc
-            elif ib_val == brackish_val:
+            elif loc in intcoast_val:
                 conc = brackish_conc
             else:
                 conc = fresh_conc
-            for lay in seawat.ghb_layers:
-                line = get_ssm_line(lay,i+1,j+1,conc,ghb_itype)
-                ghb_lrcconc.append(line)
+            line = get_ssm_line(l,r,c,conc,ghb_itype)
+            ghb_lrcconc.append(line)   
+        f.close()
+        break                     
                                                                  
 print 'writing ssm file'                
 mxact_ghb = len(ghb_lrcconc)
@@ -165,8 +172,8 @@ for i,start in enumerate(flow.sp_start):
 
     #--point sources/sinks
     riv_act = riv_sp[i+1]
-    #wel_lines = wel_sp[i+1]
-    wel_lines = wel_month[start.month]
+    wel_lines = wel_sp[i+1]
+    #wel_lines = wel_month[start.month]
     mxss = mxact_ghb + len(wel_lines) + len(riv_act)
     #mxss = mxact_ghb + len(wel_lines)
     f_ssm.write('{0:10.0f}\n'.format(mxss))

@@ -78,7 +78,7 @@ def apply():
                 mult[i,j] = val  
             base = np.loadtxt(in_name)
             print out_name
-            np.savetxt(out_name,base*mult,fmt=' %15.5E')
+            np.savetxt(out_name,base*mult,fmt=' %14.4E')
 
 def setup():
     pp_dir ='pp_locs\\'
@@ -173,7 +173,7 @@ def setup():
 
 
 if __name__ == '__main__':
-    #setup()
+    setup()
     os.chdir('_model\\')
     apply()
 

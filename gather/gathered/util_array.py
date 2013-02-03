@@ -523,6 +523,7 @@ class util_2d():
                 try:
                     value = float(value)
                 except:
+                    assert os.path.exists(value),'could not find file: '+str(value)
                     return value
         if np.isscalar(value):
             if self.dtype == np.int:

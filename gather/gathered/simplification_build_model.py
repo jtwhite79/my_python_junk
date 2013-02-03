@@ -10,11 +10,14 @@ import simplification_prep_bc as prep
 import simplification_apply_bc_factors as apply
 
 import simplification_plot_results as plot
+import simplification_build_modpath as mpath
 
-os.chdir('..\\')
-prep.prep()
-apply.apply()
-os.chdir('_model\\')
+
+#print grid.sp_start[-1],grid.sp_end[-1]
+#os.chdir('..\\')
+#prep.prep()
+#apply.apply()
+#os.chdir('_model\\')
 
 modelname = grid.modelname
 exe = 'MD_mfnwt_x64.exe'
@@ -54,14 +57,16 @@ for i in range(1,grid.nlay):
     bot.append(bot[i-1] - thk)
 perlen = []
 for i in range(1,len(grid.sp_start)):
-    perlen.append((grid.sp_start[i]-grid.sp_start[i-1]).days)
+    perlen.append((grid.sp_end[i]-grid.sp_start[i]).days)
+perlen[-1]
 dis = ModflowDis(ml,grid.nlay,grid.nrow,grid.ncol,delr=grid.delr,delc=grid.delc,\
-    top='ref\\top.ref',botm=bot,laycbd=0,perlen=perlen,nper=len(perlen),steady=True)
+    top='ref\\top.ref',botm=bot,laycbd=0,perlen=perlen,nper=len(perlen),steady=False)
 strt = []
 for k in range(grid.nlay):
     strt.append('ref\\strt_'+str(k+1)+'.ref')
 bas = ModflowBas(ml,ibound=grid.ibound_names,strt=strt)
-#ghb = ModflowGhb(ml,layer_row_column_head_cond=[ghb_lines])
+
+#--only create once, otherwise, have to re-sample rech arrays - costly
 rech = [0.00005]
 beta = 0.5 
 for i in range(1,len(perlen)):
@@ -71,34 +76,36 @@ for i in range(1,len(perlen)):
         val = 0.0
     rech.append(val) 
 rech[-1] = min(rech)
+f = open('simple_rech_series.dat','w')
+for r in rech:
+    f.write('{0:15.6G}\n'.format(r))
+f.close()
 rch = ModflowRch(ml,rech=rech,bin=True)
-
-#evt = ModflowEvt(ml,surf=grid.top,evtr=0.00005)
 
 lpf = ModflowLpf(ml,laytyp=0,hk=prop_dict['k'],vka=prop_dict['k'])
 #upw = ModflowUpw(ml,laytyp=0,hk=prop_dict['k'],vka=prop_dict['k'])
-oc = ModflowOc(ml,words=['head'],save_head_every=1)
-gmg = ModflowGmg(ml,hclose=0.25,rclose=1.0)
+oc = ModflowOc(ml,words=['head','budget'],save_head_every=1)
+gmg = ModflowGmg(ml,hclose=0.35,rclose=5.0)
 #nwt = ModflowNwt(ml,headtol=0.25,fluxtol=5.0)
 
-
+#mfaddoutsidefile(ml,'RCH','rch',19)
 mfaddoutsidefile(ml,'WEL','wel',30)
 mfaddoutsidefile(ml,'GHB','ghb',31)
 mfaddoutsidefile(ml,'SWR','swr',32)
 
-ml.add_external(modelname+'.fls',101,False)
+ml.add_external(modelname+'.fls',101,True)
 ml.add_external(modelname+'.stg',102,False)
 ml.add_external(modelname+'.bfl',103,False)
 ml.add_external(modelname+'.str',105,False)
 
-
+dis.nper = 1
 ml.write_input()
-
+#mpath.build(ml)
 
 
 
 ml.run_model2(pause=False)
-plot.plot()
+#plot.plot()
 
 #os.system(exe+' '+modelname+'.nam')
 
