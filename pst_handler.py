@@ -515,8 +515,11 @@ class pst():
 
     def update_observation_info(self,bottomup):
         unique_groups = list(self.observation_data['obgnme'].unique())
-        if self.prior_information is not None:
+        #if self.prior_information is not None:
+        try:
             unique_groups.extend(list(self.prior_information['obgnme'].unique()))
+        except:
+            pass
         existing_groups = self.observation_groups['obgnme'].values
         same = self.compare_list_elements(unique_groups,existing_groups)
         if not same:
@@ -529,7 +532,10 @@ class pst():
         #--if there are any observation data with an unknown group
 
         self.nobs.set_value(self.observation_data.shape[0])
-        self.update_prior_info(bottomup)
+        try:
+            self.update_prior_info(bottomup)
+        except:
+            pass
         nobsgp = self.observation_groups.shape[0]
         self.nobsgp.set_value(nobsgp)
 
@@ -540,9 +546,9 @@ class pst():
         same = self.compare_list_elements(unique_groups,existing_groups)
         if not same:
             if not bottomup:
-                self.remove_from_df_attr(self.parameter_data,'pargp',existing_groups)    
+                self.remove_from_df_attr('parameter_data','pargp',existing_groups)    
             else:
-                self.remove_from_df_attr(self.parameter_groups,'pargpnme',unique_groups)
+                self.remove_from_df_attr('parameter_groups','pargpnme',unique_groups)
         self.npar.set_value(self.parameter_data.shape[0])
         self.npargp.set_value(self.parameter_groups.shape[0])
         self.maxsing.set_value(self.parameter_data.shape[0])

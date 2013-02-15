@@ -112,7 +112,7 @@ class matrix():
         
             #--zero-based indexing translation
             self.x[irow-1,icol-1] = dtemp
-        print time.clock() - start
+        #print time.clock() - start
         #--read parameter names
         col_names = []
         for i in range(ncol):
@@ -143,15 +143,22 @@ class matrix():
         #            f_out.write('\n')
         #    f_out.write('\n')    
         np.savetxt(f_out,self.x,fmt='%15.7E')
-        f_out.write('* row names\n')
-        for r in self.row_names:
-            f_out.write(r+'\n')
+        if icode == 1:
+            f_out.write('* row and column names\n')
+            for r in self.row_names:
+                f_out.write(r+'\n')
+
+        else:
+
+            f_out.write('* row names\n')
+            for r in self.row_names:
+                f_out.write(r+'\n')
     
-        f_out.write('* column names\n')
-        for c in self.col_names:
-            f_out.write(c+'\n')
-        f_out.close()
-        #print time.clock() - start
+            f_out.write('* column names\n')
+            for c in self.col_names:
+                f_out.write(c+'\n')
+            f_out.close()
+            #print time.clock() - start
 
     def from_ascii(self,filename):
         f = open(filename,'r')
@@ -171,7 +178,7 @@ class matrix():
         if 'row' in line and 'column' in line:
             assert nrow == ncol
             names = []
-            for i in nrow:
+            for i in range(nrow):
                 line = f.readline().strip().lower()
                 names.append(line)
             self.row_names = names
