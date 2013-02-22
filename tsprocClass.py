@@ -87,9 +87,9 @@ class base_block():
             print 'Warning -- assigning generic weight 1.0 for final pest '\
                   +data_type+' :'+str(name)
             wght = 1.0
-        self.block_type = block_type.upper()
+        self.block_type = block_type.lower()
         self.context = context
-        self.name = name.upper()
+        self.name = name.lower()
         self.data_type = data_type
         self.role = role
         self.wght = wght
@@ -118,7 +118,7 @@ class base_block():
             f_obj.write('\nSTART '+self.block_type+'\n')
             f_obj.write(' CONTEXT '+self.context+'\n')
             for idx in range(len(self.item_keys)):
-                f_obj.write(' '+self.item_keys[idx].upper()+' '+\
+                f_obj.write(' '+self.item_keys[idx].lower()+' '+\
                             str(self.item_values[idx])+'\n')
             f_obj.write('END '+self.block_type+'\n')
         return  
@@ -256,19 +256,19 @@ class tsproc(base_block):
             return blocks
         elif name != None:
             for block in existing_blocks:                
-                if block.name.upper() == name.upper():
+                if block.name.lower() == name.lower():
                     return block
             return None
         elif dtype != None:
             blocks = []
             for block in existing_blocks:
-                if block.data_type.upper() == dtype.upper():
+                if block.data_type.lower() == dtype.lower():
                     blocks.append(block)
             return blocks 
         elif role != None:
             blocks = []
             for block in existing_blocks:
-                if block.role.upper() == role.upper():
+                if block.role.lower() == role.lower():
                     blocks.append(block)
             return blocks            
         else:
@@ -335,9 +335,8 @@ class tsproc(base_block):
 
     def get_mul_series_ssf(self,site_list,ssf_file,context='all',prefix='',\
                        block_operation='get_series_ssf',role='intermediate',\
-                       wght=None,max_min=None,series_list = None):        
-        
-        suffix = 'or'
+                       wght=None,max_min=None,series_list = None,suffix='or'):        
+                
         if series_list == None:
             series_list = []
             for site in site_list:
@@ -541,10 +540,34 @@ class tsproc(base_block):
    
 
 
-    def baseflow_filter(self,existing_blocks,block_opertion='digital_filter',\
+    def lowpass_filter(self,existing_blocks,cutoff,block_operation='lowpass',\
+                           context='all',wght=None,max_min=None,suffix='lp',\
+                           role='intermediate'):
+        this_item_keys = ['FILTER_TYPE','SERIES_NAME','NEW_SERIES_NAME',\
+                          'CUTOFF_FREQUENCY','FILTER_PASS','STAGES','REVERSE_SECOND_STAGE']
+        new_blocks = []
+        for block in existing_blocks:
+            this_series_name = self.get_name(block.name,suffix)            
+            assert block.data_type == SERIES
+            self.check_name(this_series_name)            
+            this_item_vals = ['butterworth',block.name,this_series_name,\
+                                cutoff,'low','2','yes']
+            this_block = base_block('DIGITAL_FILTER',context,this_series_name,SERIES,\
+                                    this_item_keys,this_item_vals,role,wght=wght,max_min=max_min)
+            self.blocks.append(this_block)
+            new_blocks.append(this_block)
+            this_block_index = self.get_block_index(block.name)
+            this_op = copy.deepcopy(self.block_operations[this_block_index])
+            this_op.append(block_operation)             
+            self.block_operations.append(this_op)
+        return new_blocks                                                     
+ 
+
+
+    def baseflow_filter(self,existing_blocks,block_operation='digital_filter',\
                         alpha=0.9,passes=1,clip_input='no',clip_zero='no',\
                         context='all',wght=None,max_min=None,suffix='df',
-                        role='intermediate',block_operation='baseflow_filter'):
+                        role='intermediate'):
         
         this_item_keys = ['FILTER_TYPE','SERIES_NAME','NEW_SERIES_NAME',\
                           'ALPHA','PASSES','CLIP_INPUT','CLIP_ZERO']
@@ -1074,7 +1097,7 @@ class tsproc(base_block):
     def erase_entity(self,existing_blocks,context='all',role='None'):        
         new_blocks = []
         for block in existing_blocks:
-            assert block.role.upper() != 'FINAL',\
+            assert block.role.lower() != 'final',\
                 'Cannot erase_entity for a \'final\' role block'
             this_item_keys = [block.data_type]
             this_item_values = [block.name]
