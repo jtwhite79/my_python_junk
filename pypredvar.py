@@ -6,134 +6,80 @@ import pypredvar as pvar
 
 class predvar():
     '''
-    doesnt support obs covariance matrices
+    takes scaled q^(1/2)X so doesn't need param unc information
+    X should be scaled and shouldn't contain any zero-weight obs or regul obs
+    assumes pred vectors have been aligned with corrected X
     '''
-    def __init__(self,jco,pcov,ocov,pred_vectors,singular_values,ref_var=1.0):
-        self.jco = jco
-        self.pcov = pcov
-        self.ocov = ocov
+    def __init__(self,jco,pred_vectors,singular_values,ref_var=1.0,verbose=False,jco_struct=None,pred_vectors_struct=None):
+        self.jco = jco        
         self.pred_vectors = pred_vectors
         self.singular_values = singular_values
         self.ref_var = ref_var
+        self.verbose = bool(verbose)
+        self.jco_struct = jco_struct
+        self.pred_vectors_struct = pred_vectors_struct
+
  
+    def calc(self):        
+        print 'SVD on scaled q^(1/2)X'
+        u,s_vec,vt = np.linalg.svd(self.jco)
+        
+        v = vt.transpose()
+        s_vec = s_vec **2
 
-    #@property
-    #def cov_obs(self):
-    #    if self.__cov_obs is not None:
-    #        return self.__cov_obs
-    #    else:
-    #        obs_var = (1.0/self.pst.observation_data.weight.values)**2
-    #        obs_names = self.pst.observation_data.obsnme.values
-    #        cov_obs = mhand.matrix(np.atleast_2d(np.array(obs_var)).transpose(),obs_names)
-    #        self.__cov_obs = cov_obs
-    #        return cov_obs
+        #--for testing       
+        #u = np.loadtxt('u_py.mat')        
+        #s_vec = np.loadtxt('s_py.mat')        
+        #v = np.loadtxt('vt_py.mat').transpose()
+        
+        
+        if self.verbose:
+            np.savetxt('u_py.mat',u,fmt='%25.10E')
+            np.savetxt('s_py.mat',s_vec,fmt='%25.10E')
+            np.savetxt('vt_py.mat',vt,fmt='%25.10E')
             
-    def jco_2_qhalfx(self):
-        for i in range(self.jco.shape[0]):
-            self.jco[i,:] *= np.sqrt(self.ocov[i])
-
-    def scale_jco(self):
-        u,s,vt = np.linalg.svd(self.pcov)
-        s = 1.0/(np.sqrt(s))
-        self.jco = np.dot(self.jco,u)
-        self.jco = np.dot(self.jco,s)
-        return
-
-    def calc(self):
-        #self.align_vectors()
-        print 'scaling JCO'
-        #self.scale_jco()
-        print 'forming q^(1/2)X'
-        #self.jco_2_qhalfx()
-        print 'SVD on q^(1/2)X'
-        #u,s,vt = np.linalg.svd(self.jco,full_matrices=False)
-        #np.savetxt('u.mat',u,fmt='%15.7E')
-        #np.savetxt('s.mat',s,fmt='%15.7E')
-        #np.savetxt('vt.mat',vt,fmt='%15.7E')
-        u = np.loadtxt('u.mat')
-        #s = np.diagflat(np.loadtxt('s.mat'))
-        s = np.loadtxt('s.mat')
-        s_inv = 1.0/s
-        v = np.loadtxt('vt.mat').transpose()
+        s_inv = 1.0/s_vec                
         nrow,ncol = self.jco.shape
-        if nrow > ncol:
-            u = u[:ncol,:ncol]
-        elif ncol > nrow:
-            v = v[:nrow,:nrow]
-        print 'starting singular value cycle'
-        #--open file handles for each results file
-
-        results = []
-        for name,p in self.pred_vectors.iteritems(): 
-            f = open(name,'w',0)
-            f.write('{0:10s} {1:15s} {2:15s}\n'.format('sing_val','first_term','second_term'))
-            results.append(f)
-        for s in self.singular_values:
-            print s,'\r',
-            if s == 0:
-                pass
-            elif s > self.jco.shape[1]:
-                pass
-            else: 
-                I_minus_R = np.dot(v[:,s:],v[:,s:].transpose())
-                G = v[:,:s]
-                for i in range(s):
-                    G[:,i] *= s_inv[i]
-                G = np.dot(G,u[:,:s].transpose())
-                 
-                for i,[name,p] in enumerate(self.pred_vectors.iteritems()):
-                    first = np.dot(p.transpose(),I_minus_R)
-                    first = np.dot(first,p)
-                    second = np.dot(p.transpose(),G)
-                    second = np.dot(second,p)
-                    line = '{0:10d} {1:15.6E} {2:15.6E}\n'.format(s,float(first),float(second))
-                    results[i].write(line)
-
-        for r in results:
-            r.close()
-                    
-                    
-                    
                 
 
-        
-
-
-    
-        
-
-            
-
-    #def align_vectors(self):
-    #    #--loop over each pred vector
-    #    for i,pred_vector in enumerate(self.pred_vectors):
-    #        #--align the pred vector
-    #        pvec = [0.0] * self.jco.shape[1]
-    #        visited = [False] * self.jco.shape[1]
-    #        for pname,val in zip(pred_vector.row_names,pred_vector.x):
-    #            if pname in self.jco.col_names:
-    #                idx = self.jco.col_names.index(pname)
-    #                pvec[idx] = val
-    #                visited[idx] = True
-    #        if False in visited:
-    #            for i,v in enumerate(visited):
-    #                if not v:
-    #                    print self.jco.col_names[i],' not found in pred vector',pred_vector.col_names
-    #            raise Exception
-    #        pred_vector.row_names = self.jco.col_names
-    #        pred_vector.x = np.atleast_2d(np.array(pvec)).transpose()
-    #        self.pred_vectors[i] = pred_vector
-    #        pass
-                               
-                 
-    #def check(self):
-    #    errors = []
-    #    #--check that all jco obs are in the pst
-    #    for oname in self.jco.row_names:
-    #        if oname not in self.pst.observation_data.obsnme:
-    #            errors.append('jco obs name missing from pst file '+oname )
-    #    #--check pred vectors
-    #    for pred_vector in pred_vectors:
-    #        for pname in pred_vector.col_names:
-    #            if pname not in jco.col_names:
-    #                errors.append('pred vector par name not in jco: '+pname)
+        for i,[name,p] in enumerate(self.pred_vectors.iteritems()):
+            f = open(name,'w',0)
+            f.write('{0:10s} {1:15s} {2:15s}\n'.format('sing_val','first_term','second_term'))
+            for sv in self.singular_values:            
+                print name,sv,'\r',
+                        
+                if sv > self.jco.shape[1]:
+                    first = 0.0                
+                else:
+                    first = np.dot(p.transpose(),v[:,sv:])                    
+                    first = np.dot(first,v[:,sv:].transpose())                    
+                    first = np.dot(first,p)                   
+                if sv == 0.0:
+                    second = 0.0                
+                else:                    
+                    if sv > s_vec.shape[0]:
+                        second = 1.0e+35                    
+                    else:
+                        
+                        temp = np.dot(p.transpose(),v[:,:sv])
+                        second = 0.0
+                        for i in range(sv):
+                            second += temp[0,i] * s_inv[i] * temp[0,i]
+                    
+                if self.jco_struct is not None:
+                    if sv > s_vec.shape[0]:
+                        third = 1.0e+35 
+                    else:    
+                        ps = self.pred_vectors_struct[name]
+                        temp = np.dot(p.transpose(),v[:,:sv])                    
+                        for i in range(sv):
+                            temp[0,i] *= s_inv[i]
+                        temp = np.dot(temp,u[:,:sv].transpose())
+                        temp = np.dot(temp,self.jco_struct).transpose()
+                        temp -= ps                    
+                        third = np.dot(temp.transpose(),temp)                                           
+                else:
+                    third = 0.0
+                line = '{0:10d} {1:15.6E} {2:15.6E} {3:15.6E}\n'.format(sv,float(first),float(second),float(third))
+                f.write(line)
+            f.close()

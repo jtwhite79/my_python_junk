@@ -73,6 +73,41 @@ class matrix():
         f = open(out_filename,'wb')
         f.close()
 
+    def drop(self,names):
+        for name in names:
+            if name not in self.col_names and name not in self.row_names:
+                raise Exception('name not found: '+name)
+            if name in self.col_names:
+                idx = self.col_names.index(name)
+                self.x = np.delete(self.x,idx,1)
+                self.col_names.remove(name)
+            if name in self.row_names:
+                idx = self.row_names.index(name)
+                self.x = np.delete(self.x,idx,0)
+                self.row_names.remove(name)
+            
+
+    def extract_cols(self,names):
+        '''extracts and returns
+        '''
+        idxs = [],[]
+        for name in names:
+            if name not in self.col_names:
+                raise Exception('name not found col names: '+name)
+            
+            idx = self.col_names.index(name)
+            idxs.append(idx)
+            #self.x = np.delete(self.x,idx,1)
+            self.col_names.remove(name)
+        extract = self.x[:,idxs].copy()
+        self.x = np.delete(self.x,idxs,1)
+        return extract
+            
+            
+
+
+
+
     def from_binary(self,filename):        
         f = open(filename,'rb')
         #--the header datatype
@@ -116,14 +151,14 @@ class matrix():
         #--read parameter names
         col_names = []
         for i in range(ncol):
-            cn = np.fromfile(f,self.char, count=12).tostring().lower()
+            cn = np.fromfile(f,self.char, count=12).tostring().lower().strip()
             col_names.append(cn)
             #print 'par:',pn
     
         #--read obs names
         row_names = []
         for i in range(nrow):
-            rn = np.fromfile(f,self.char, count=20).tostring().lower()
+            rn = np.fromfile(f,self.char, count=20).tostring().lower().strip()
             row_names.append(rn)
             #print 'obs:',on
                 
