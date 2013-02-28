@@ -263,22 +263,39 @@ class uncert(matrix):
                         if name in self.names:
                             idx = self.names.index(name)
                             self.x[idx,idx] = val**2
+                            visited[idx] = True
                 
                 elif 'covariance_matrix' in line:
+                    var = 1.0
                     while True:
                         line2 = f.readline().strip().lower()
                         if 'end' in line2:
                             break
-                        if line2.startswith('file'):
+                        if line2.startswith('file'):                            
                             cov = matrix()
-                            cov.from_ascii(line2.split()[1])
-                            pass
+                            cov.from_ascii(line2.split()[1])                            
+                            
                         elif line2.startswith('variance_multiplier'):
-                            self.var = float(line2.split()[1])
+                            var = float(line2.split()[1])
                         else:
                             raise Exception('unrecognized keyword in std block: '+line2)
-                
-
-                    
+                    if var != 1.0:
+                        for idx in self.x.shape[0]:
+                            self.x[idx,idx] *= var                                                                    
+                    for i,rname in enumerate(cov.row_names):
+                        for j,cname in enumerate(cov.col_names):
+                            if rname in self.names and cname in self.names:
+                                i_idx = self.names.index(rname)
+                                j_idx = self.names.index(cname)
+                                self.x[i_idx,j_idx] = cov.x[i,j]                         
+                                visited[i_idx] = True
+                else:
+                    raise Exception('unrecognized block:'+str(line))                
+                            
         f.close()
+        if False in visited:
+            for name,visit in zip(self.names,visited):
+                if not visit:
+                    print 'entry not found for name:',name
+            raise Exception('error loading uncertainty file')
 

@@ -204,7 +204,25 @@ class lstbudget():
             if 'NAN' in fx_str.strip().upper():
                 flux = np.NaN         
         return entry,flux,cumu            
-           
+ 
+    
+class seawatbudget(lstbudget):
+    def __init__(self,file_name,key_string='MASS BUDGET FOR ENTIRE MODEL'):
+        assert os.path.exists(file_name)
+        self.file_name = file_name
+        self.f = open(file_name,'r')
+        #self.lstkey = re.compile(key_string)                        
+        self.lstkey = key_string
+        self.idx_map = []
+        self.entries = []
+        self.null_entries = []
+        self.flux = {}
+        self.cumu = {} 
+        self.cumu_idxs = [22,40]
+        self.flux_idxs = [63,80]   
+        self.ts_idxs = [50,54]
+        self.sp_idxs = [70,75] 
+        self.tssp_lines = 0             
                   
 
 class mfbudget(lstbudget):
@@ -249,7 +267,7 @@ class lsttime(lstbudget):
     passing a start datetime results in casting the totim to dts from start
     '''
 
-    def __init__(self,file_name,timeunit='days',key_str='TIME SUMMARY AT END',start=None):
+    def __init__(self,file_name,timeunit='days',key_str='TIME SUMMARY AT END',start=None,flow=True):
        
         assert os.path.exists(file_name)
         self.file_name = file_name
@@ -261,8 +279,12 @@ class lsttime(lstbudget):
         #self.lstkey = re.compile(key_str)
         self.lstkey = key_str
         self.tssp_lines = 0
-        self.ts_idxs = [42,47]
-        self.sp_idxs = [63,69]
+        if flow:
+            self.ts_idxs = [42,47]
+            self.sp_idxs = [63,69]
+        else:
+            self.ts_idxs = [65,71]
+            self.sp_idxs = [87,92]
         self.time_line_idx = 20
         if timeunit.upper() =='DAYS':
             self.timeunit = 'D'

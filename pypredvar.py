@@ -44,7 +44,10 @@ class predvar():
 
         for i,[name,p] in enumerate(self.pred_vectors.iteritems()):
             f = open(name,'w',0)
-            f.write('{0:10s} {1:15s} {2:15s}\n'.format('sing_val','first_term','second_term'))
+            f.write('{0:10s} {1:15s} {2:15s}'.format('sing_val','first_term','second_term'))           
+            f.write(' {0:15s}'.format('third_term'))
+            f.write(' {0:15s} {1:15s}\n'.format('total_var','st_dev'))
+            
             for sv in self.singular_values:            
                 print name,sv,'\r',
                         
@@ -80,6 +83,9 @@ class predvar():
                         third = np.dot(temp.transpose(),temp)                                           
                 else:
                     third = 0.0
-                line = '{0:10d} {1:15.6E} {2:15.6E} {3:15.6E}\n'.format(sv,float(first),float(second),float(third))
+                tot_var = first + second + third
+                stdev = np.sqrt(tot_var)
+                line = '{0:10d} {1:15.6E} {2:15.6E} {3:15.6E} {4:15.6E} {5:15.6E}\n'\
+                    .format(sv,float(first),float(second),float(third),float(tot_var),float(stdev))
                 f.write(line)
             f.close()

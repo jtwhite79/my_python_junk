@@ -340,7 +340,7 @@ class tsproc(base_block):
         if series_list == None:
             series_list = []
             for site in site_list:
-                series_list.append(prefix+site[len(prefix):]+suffix)
+                series_list.append(prefix+site+suffix)
         else:
             assert len(site_list) == len(series_list)
         this_item_keys = ['FILE']        
@@ -878,13 +878,13 @@ class tsproc(base_block):
                              
     
     def copy_2_series(self,existing_blocks,new_names,block_operation='copy',\
-                      context='all',role='intermediate',wght=None,maxmin=None):
+                      context='all',role='intermediate',wght=None,maxmin=None,suffix=''):
         new_blocks = []
         assert len(new_names) == len(existing_blocks),'the list of new names is not the same length as the existing blocks list'
         for block,new_name in zip(existing_blocks,new_names):
             #print block
             assert block.data_type == SERIES,block.name+' is not a series'
-            this_series_name = new_name
+            this_series_name = new_name + suffix
             #if wght != None:
             #    if wght == 'other':
             #        this_wght = block.wght
