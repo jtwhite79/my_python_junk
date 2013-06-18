@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import pandas
 '''tries to do all lower case for strings
@@ -19,9 +20,10 @@ DTYPES = {'RSTFLE':S,'PESTMODE':S,'NPAR':I,'NOBS':I,'NPARGP':I,'NPRIOR':I,'NOBSG
                     'PARGPNME':S,'INCTYP':S,'DERINC':F,'DERINCLB':F,'FORCEN':S,'DERINCMUL':F,'DERMTHD':S,\
                     'SPLITTHRESH':F,'SPLITRELDIFF':F,'SPLITACTION':S,'PARNME':S,'PARTRANS':S,'PARCHGLIM':S,'PARVAL1':F,\
                     'PARLBND':F,'PARUBND':F,'PARGP':S,'SCALE':F,'OFFSET':F,'DERCOM':I,'OBSNME':S,'OBSVAL':F,'WEIGHT':F,'OBGNME':S,\
-                    'PILBL':S,'PI_EQUATION':S,'WEIGHT':F,'OBGNME':S,'PHIMLIM':F,'PHIMACCEPT':F,'FRACPHIM':F,'MEMSAVE':S,'WFINIT':F,'WFMIN':F,'WFMAX':F,'LINREG':S,'REGCONTINUE':S,\
+                    'PILBL':S,'PI_EQUATION':S,'WEIGHT':F,'OBGNME':S,'PHIMLIM':F,'PHIMACCEPT':F,'FRACPHIM':F,'MEMSAVE':S,\
+                    'WFINIT':F,'WFMIN':F,'WFMAX':F,'LINREG':S,'REGCONTINUE':S,\
                     'WFFAC':F,'WFTOL':F,'IREGADJ':I,'NOPTREGADJ':I,'REGWEIGHTRAT':F,'REGSINGTHRESH':F,'COMLINE':S,\
-                    'MODEL_INTERFACE_FILE':S,'MODEL_FILE':S}
+                    'MODEL_INTERFACE_FILE':S,'MODEL_FILE':S,'PARTIED':S}
 
 
 PST_BASE = '''pcf
@@ -59,7 +61,6 @@ PARGPNME INCTYP DERINC DERINCLB FORCEN DERINCMUL DERMTHD [SPLITTHRESH SPLITRELDI
 * parameter data
 PARNME PARTRANS PARCHGLIM PARVAL1 PARLBND PARUBND PARGP SCALE OFFSET DERCOM
 (one such line for each of NPAR parameters)
-PARNME PARTIED
 (one such line for each tied parameter)
 * observation groups
 OBGNME [GTARG] [COVFLE]
@@ -403,6 +404,18 @@ class pst():
                 else:
                     attr = getattr(self,self.control_2_attr(sname))
                     keys = attr.keys()
+                    partied_section = None
+                    if 'partied' in keys :
+                        attr = copy.deepcopy(attr)
+                        partied_groups = attr.groupby('partied').groups
+                        partied_section = ''
+                        for key,idxs in partied_groups.iteritems():
+                            if key.lower() != 'none':
+                                for idx in idxs:
+                                    partied_section += FMT[DTYPES['PARNME']].format(attr.ix[idx]['parnme'])
+                                    partied_section += FMT[DTYPES['PARTIED']].format(attr.ix[idx]['partied'])
+                                    partied_section += '\n'
+                        attr['partied'] = ''
                     dtypes,fmts = {},{}
                     for k in keys:
                         dtypes[k] = self.DTYPES[k]
@@ -413,6 +426,8 @@ class pst():
                                 if p in keys:
                                     f.write(fmts[p].format(rec[p]))
                         f.write('\n')
+                    if partied_section:
+                        f.write(partied_section)
         f.close()
 
     def control_2_attr(self,cstring):

@@ -249,9 +249,10 @@ class uncert(matrix):
         visited = [False] * len(self.names)
         f = open(filename,'r')
         while True:
-            line = f.readline().strip().lower()
-            if line == '':
+            line = f.readline().lower()
+            if len(line) == 0:
                 break
+            line = line.strip()
             if 'start' in line:
                 if 'standard_deviation' in line:
                     while True:
@@ -273,22 +274,29 @@ class uncert(matrix):
                             break
                         if line2.startswith('file'):                            
                             cov = matrix()
-                            cov.from_ascii(line2.split()[1])                            
+                            cov.from_ascii(line2.split()[1])
+                            drop = []
+                            for rname in cov.row_names:
+                                if rname not in self.names:
+                                    drop.append(rname)
+                            cov.drop(drop)                                
+                                                                
                             
                         elif line2.startswith('variance_multiplier'):
                             var = float(line2.split()[1])
                         else:
                             raise Exception('unrecognized keyword in std block: '+line2)
                     if var != 1.0:
-                        for idx in self.x.shape[0]:
-                            self.x[idx,idx] *= var                                                                    
-                    for i,rname in enumerate(cov.row_names):
-                        for j,cname in enumerate(cov.col_names):
-                            if rname in self.names and cname in self.names:
-                                i_idx = self.names.index(rname)
-                                j_idx = self.names.index(cname)
-                                self.x[i_idx,j_idx] = cov.x[i,j]                         
-                                visited[i_idx] = True
+                        #for idx in range(cov.x.shape[0]):
+                        #    cov.x[idx,idx] *= var                                                                    
+                        cov.x *= var
+                    for i,rname in enumerate(cov.row_names):                       
+                            i_idx = self.names.index(rname)
+                            visited[i_idx] = True
+                            for j,cname in enumerate(cov.col_names):                                
+                                    j_idx = self.names.index(cname)
+                                    self.x[i_idx,j_idx] = cov.x[i,j]                         
+                                    
                 else:
                     raise Exception('unrecognized block:'+str(line))                
                             

@@ -287,6 +287,7 @@ def load_header(f):
 
 def parse_line(line,idx):
     raw = line.strip().split(',')
+    missing_vals = ['M','X','N','!','E']
     if 'TIME' not in idx.keys():
         dt = datetime.strptime(raw[idx['DATE']],'%d-%b-%Y')
         dt += timedelta(hours=12)
@@ -301,7 +302,7 @@ def parse_line(line,idx):
         val = float(raw[idx['DATA']])     
     except ValueError:
         v = raw[idx['DATA']].upper() 
-        if v == 'M' or v == 'X' or v == 'N':
+        if v in missing_vals:
             val = np.NaN
         elif v == 'PROVISIONAL':
             val = np.NaN        

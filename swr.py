@@ -10,7 +10,7 @@ ds_3_h = ['#ISOLVER','NOUTER','NINNER','IBT','TOLS','TOLR','TOLA','DAMPSS','DAMP
 
 ds_13a_h = ['ISTRRCH','ISTRNUM','ISTRCONN','ISTRTYPE','NSTRPTS',\
              'STRCD','STRCD2','STRCD3','STRINV','STRINV2','STRWID',\
-             'STRWID2','STRLEN','STRMAN','STRVAL','ISTRDIR']
+             'STRWID2','STRLEN','STRMAN','STRVAL','STRVAL2','ISTRDIR']
 ds_13b_h = ['CSTROTYP','ISTRORCH','ISTROQCON','CSTROLO','CSTRCRIT',\
              'STRCRITC','STRRT','STRMAX','CSTRVAL']             
 
@@ -73,7 +73,7 @@ def load_ds4b(filename):
 
 
 class ds_3():
-    def __init__(self,solver=1,nouter=50,ninner=100,ibt=10,tols=1.0e-3,tolr=1.0+3,tola=0.5,dampss=1.0,damptr=1.0,iprswr=0,mutswr=0,ipc=4,nlevels=7,droptol=1.0e-3,ibtprt=-1):
+    def __init__(self,solver=1,nouter=50,ninner=100,ibt=10,tols=1.0e-9,tolr=1.0E+0,tola=0.1,dampss=1.0,damptr=1.0,iprswr=0,mutswr=0,ipc=4,nlevels=7,droptol=1.0e-3,ibtprt=-1):
         self.solver = int(solver)
         self.nouter = int(nouter)
         self.ninner = int(ninner)
@@ -116,7 +116,7 @@ class ds_3():
 
 
 class ds_2():
-    def __init__(self,dlenconv=3.281,timeconv=86400.0,rtini=0.0,rtmin=0.0,rtmax=0.0,rtprn=0.0,tmult=1.0,nmult=1,dmingrad=1.0e-12,dmindepth=1.0e-3,dmaxrai=0.0,dmaxstg=0.0,dmaxinf=0.0):
+    def __init__(self,dlenconv=3.281,timeconv=86400.0,rtini=0.0,rtmin=0.0,rtmax=0.0,rtprn=0.0,tmult=1.0,nmult=1,dmingrad=0.0,dmindepth=1.0e-8,dmaxrai=0.0,dmaxstg=0.0,dmaxinf=0.0):
         self.dlenconv = float(dlenconv)
         self.timeconv = float(timeconv)
         self.rtini = float(rtini)
@@ -705,7 +705,7 @@ class ds_13a():
                                     
 
 class swr_timestep():
-    def __init__(self,f_obj,reaches,rain_entries,evap_entries,lat_entries,igeonumr,igeo,sp_dates,datadir='.\\'):        
+    def __init__(self,f_obj,reaches,rain_entries,evap_entries,lat_entries,igeonumr,igeo,data_12,data_13,sp_dates,datadir='.\\'):        
         '''sp_start is a list of datetimes marking the start of each stress period
         '''
         self.f_obj = f_obj
@@ -717,7 +717,10 @@ class swr_timestep():
         self.ds_8b = ds_8b(evap_entries)
         self.ds_10 = ds_10(igeonumr,filename_prefix=datadir+'ds_10_')
         self.ds_11 = ds_11(igeo,filename_prefix=datadir+'ds_11_')
-        self.ds_14 = df_14(reaches,filename_prefix=datadir+'ds_14_')        
+        self.ds_12 = ds_12(data_12,filename_prefix=datadir+'ds_12_')
+        self.ds_13 = ds_13(data_13,filename_prefix=datadir+'ds_13_')
+
+        self.ds_14 = df_14(reaches,sp_dates,filename_prefix=datadir+'ds_14_')        
         self.sp_num = 1
         self.sp_dates = sp_dates        
                         
@@ -731,8 +734,7 @@ class swr_timestep():
             
             self.ds_5.irdevp,e8b = self.ds_8b.get_entry(start) 
             
-            self.ds_5.irdlin = 0 
-            self.ds_5.irdstr = 0 
+            self.ds_5.irdlin = 0  
             self.ds_5.irdaux = 0                 
             
             irdgeo_10,e10 = self.ds_10.get_entry(start)
@@ -741,6 +743,10 @@ class swr_timestep():
                 self.ds_5.irdgeo = irdgeo_10
             else:
                 self.ds_5.irdgeo = 0
+
+            len_12,e12 = self.ds_12.get_entry(start)
+            len_13,e13 = self.ds_13.get_entry(start)                            
+            self.ds_5.irdstr = len_12
 
             self.ds_5.irdstg,e14 = self.ds_14.get_entry(start)            
             
@@ -758,15 +764,20 @@ class swr_timestep():
             if self.ds_5.irdgeo != 0:               
                 f_obj.write(e10)
                 f_obj.write(e11)
+            if self.ds_5.irdstr > 0:
+                f_obj.write(e12)
+                f_obj.write(e13)
             if self.ds_5.irdstg != 0:
                 f_obj.write(e14)                       
-            self.sp_num += 1                
+            self.sp_num += 1  
+            #break               
         f_obj.close()
         return    
 
 class df_14():
-    def __init__(self,reaches,filename_prefix='df_14'):
+    def __init__(self,reaches,sp_dates,filename_prefix='df_14'):
         self.reaches = reaches
+        self.sp_dates = sp_dates
         self.filename_prefix = filename_prefix
         self.stage = []
     
@@ -775,7 +786,7 @@ class df_14():
         '''
         reaches,vals = [],[]
         for r in self.reaches:
-            if r.ibnd != 0 and r.isactive(dt):
+            if ((r.ibnd == -1 and r.isactive(dt)) or (dt == self.sp_dates[0] and r.ibnd != 0)):
                 if r.stage_series is not None and dt in r.stage_series.index:
                     val = r.stage_series[dt]
                     #stage.append([r.reach,val])
@@ -785,7 +796,7 @@ class df_14():
                     raise Exception('active reach '+str(r.reach)+' has no entry on date'+str(dt))                    
         
         for r in self.reaches:
-            if r.ibnd != 0 and r.isactive(dt) and r.reach not in reaches:            
+            if r.ibnd == -1 and r.isactive(dt) and r.reach not in reaches:            
                 raise Exception('active reach '+str(r.reach)+' has no entry on date'+str(dt))                    
         return zip(reaches,vals)
 
@@ -820,11 +831,14 @@ class ds_6():
         self.filename_prefix = filename_prefix
         self.ibnd = []
 
-    def get_ibnd(self,dt,val=-1):
+    def get_ibnd(self,dt):
         ibnd = []
         for r in self.reaches:
             if r.isactive(dt) and r.ibnd != 0:
-                ibnd.append(val)
+                if r.ibnd == -1:
+                    ibnd.append(-1)
+                else:
+                    ibnd.append(1)                
             else:
                 ibnd.append(0)
         return ibnd
@@ -851,10 +865,43 @@ class ds_6():
         f = open(fname,'w')
         f.write('#  IBNDRCH   ISWRBND\n')
         for r,ibnd in zip(self.reaches,self.ibnd):
-            f.write('{0:10.0f}{1:10.0f}\n'.format(r.reach,ibnd))
+            f.write('{0:10.0f}{1:10.0f} # {2:10d}\n'.format(r.reach,ibnd,r.reachgroup))
         f.close()
 
 
+class ds_12():
+    def __init__(self,entries,filename_prefix='ds_12_'):
+        self.entries = entries
+        self.filename_prefix = filename_prefix
+    def get_entry(self,dt):
+        if dt not in self.entries.keys():
+            return 0,None
+        else:
+            fname = self.filename_prefix+dt.strftime('%Y%m%d')+'.dat'
+            f = open(fname,'w')
+            for entry in self.entries[dt]:
+                for e in entry:
+                    f.write(e)
+            f.close()
+            return len(self.entries[dt]),'#DATASET 12\nOPEN/CLOSE  '+fname+'\n'
+                
+class ds_13():
+    def __init__(self,entries,filename_prefix='ds_13_'):
+        self.entries = entries
+        self.filename_prefix = filename_prefix
+    def get_entry(self,dt):
+        if dt not in self.entries.keys():
+            return 0,None
+        else:
+            fname = self.filename_prefix+dt.strftime('%Y%m%d')+'.dat'
+            f = open(fname,'w')
+            for entry in self.entries[dt]:
+                for e in entry:
+                    f.write(e)
+            f.close()
+            return len(self.entries[dt]),'#DATASET 13\nOPEN/CLOSE  '+fname+'\n'
+              
+   
 class ds_10():
     def __init__(self,entries,filename_prefix='ds_10_'):
         '''entries should be dict keyed with datetimes
@@ -908,7 +955,6 @@ class ds_11():
         f_obj.close()
 
 
-
 class ds_4a():
     def __init__(self,reaches):
         self.reaches = reaches
@@ -948,7 +994,7 @@ class ds_5():
     def __init__(self):                                
         self.itmp,self.irdbnd,self.irdrai = 1,1,1
         self.irdevp,self.irdlin,self.irdgeo = 1,1,1
-        self.irdstr,self.irdstg,self.iptflg,self.irdaux = 1,1,0,0
+        self.irdstr,self.irdstg,self.iptflg,self.irdaux = 0,0,1,0
         self.header = '#   ITMP  IRDBND  IRDRAI  IRDEVP  IRDLIN  IRDGEO  IRDSTR  IRDSTG  IPTFLG  IRDAUX\n'
             
     def get_entry(self,sp_num,dt):
@@ -957,10 +1003,6 @@ class ds_5():
         entry += '{0:8.0f}{1:8.0f}{2:8.0f}{3:8.0f}{4:8.0f}{5:8.0f}{6:8.0f}{7:8.0f}{8:8.0f}{9:8.0f}\n'\
             .format(self.itmp,self.irdbnd,self.irdrai,self.irdevp,self.irdlin,self.irdgeo,self.irdstr,self.irdstg,self.iptflg,self.irdaux)
         return entry
-
-
-
-
 
                                      
 class ds_7b():
@@ -1044,7 +1086,9 @@ def load_reaches_from_shape(shapename,idx_dict,active=False):
         yr = int(rec[idx_dict['active']])
         dt = datetime(year=yr,month=1,day=1)        
         # def __init__(self,reach,iroute,reachgroup,row,column,length,conn,nconn,active_dt):
-        r = reach(rec[idx_dict['reach']],rec[idx_dict['iroute']],rec[idx_dict['reachgroup']],rec[idx_dict['row']],rec[idx_dict['column']],rec[idx_dict['length']],conn,rec[idx_dict['nconn']],dt,ibnd=rec[idx_dict['ibnd']])
+        r = reach(rec[idx_dict['reach']],rec[idx_dict['iroute']],rec[idx_dict['reachgroup']],\
+                  rec[idx_dict['row']],rec[idx_dict['column']],rec[idx_dict['length']],\
+                  conn,rec[idx_dict['nconn']],dt,ibnd=rec[idx_dict['ibnd']])
         reaches.append(r)
         records.append(rec)
     return reaches,records           

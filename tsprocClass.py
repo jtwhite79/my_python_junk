@@ -1144,7 +1144,7 @@ class tsproc(base_block):
         self.write_settings()
         self.write_blocks()
         self.list_output()
-        if self.pest != False:
+        if self.pest:
             self.pest.write_entry(self.f_obj)
         self.f_obj.close()
     
