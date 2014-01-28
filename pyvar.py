@@ -1,5 +1,5 @@
 import numpy as np
-import scipy
+from scipy import linalg
 import pandas
 import mat_handler as mhand
 import pst_handler as phand
@@ -19,7 +19,7 @@ class paramvar():
 
         self.__scaled = False
         self.__qhalf = None
-        self.__fehalf
+        self.__fehalf = None
         self.__par_unc = None
         self.__obs_unc = None
         self.__v = None
@@ -28,7 +28,7 @@ class paramvar():
 
 
     def load_pst(self):
-        return phand.pst(self.case)
+        return phand.pst(self.case+".pst")
 
 
     def clean_jco(self):
@@ -47,20 +47,20 @@ class paramvar():
 
     def load_jco(self):
         jco = mhand.matrix()
-        jco.from_binary(jco_name)
+        jco.from_binary(self.case+".jco")
         return jco
 
 
     def scale_jco(self):
-        if self.par_uncfile is not None:
-            self.apply_kl_inplace()
-        self.apply_qhalf_inplace()
+        self.apply_qhalf_inplace()        
+        self.apply_kl_inplace()        
         self.__scaled = True
+        self.__par_unc.x = np.diag(np.ones((self.jco.shape[1])))
 
 
-    def apply_kl_inplace(self):
-        if self.par_uncfile is not None:
-            self.jco.x = np.dot(self.jco.x,self.fehalf)
+
+    def apply_kl_inplace(self):        
+        self.jco.x = np.dot(self.jco.x,self.fehalf)
 
 
     def apply_qhalf_inplace(self):
@@ -76,35 +76,38 @@ class paramvar():
 
     def get_first(self,nsing):
         if nsing > self.jco.shape[1]:
-            return 0.0
-        return np.dot(self.v[:,nsing:],self.v[:,nsing:].transpose())
+            return np.zeros((self.jco.shape[1]))
+        v2v2t = np.dot(self.v[:,nsing:],self.v[:,nsing:].transpose())
+        first = np.dot(v2v2t,self.par_unc.x)
+        first = np.dot(first,v2v2t.transpose())
+        return np.diag(first)
+
 
     def get_second(self,nsing):
         if nsing == 0:
-            return 0.0
+            return np.zeros((self.jco.shape[1]))
         else:
             if nsing > self.s_vec.shape[0]:
-                return 1.0E+35
-            else:
-                s_inv = 1.0/self.s_vec
+                return np.zeros((self.jco.shape[1])) + 1.0E+35
+            elif np.any(self.s_vec[:nsing] < 1.0e-20):
+                return np.zeros((self.jco.shape[1])) + 1.0E+35
+            else:    
+                s_inv = 1.0/self.s_vec                
                 second = self.v[:,:nsing]
                 for ising in range(nsing):
                     second[:,ising] *= s_inv[ising]
-                return np.dot(second,self.v[:,:nsing].transpose())
-
+                return np.diag(np.dot(second,self.v[:,:nsing].transpose()))
 
 
     @property
     def fehalf(self):
         if self.__fehalf != None:
             return self.__fehalf
-        u,s,vt = scipy.linalg.svd(self.par_unc.x)
+        u,s,vt = linalg.svd(self.par_unc.x)
         for i in range(u.shape[0]):
             u[:,i] *= s[i]**(-0.5)
         self.__fehalf = u
         return self.__fehalf
-
-
 
 
     @property
@@ -114,12 +117,14 @@ class paramvar():
         self.__set_jco_svd()
         return self.__u
 
+
     @property
     def s_vec(self):
         if self.__s_vec != None:
             return self.__s_vec
         self.__set_jco_svd()
         return self.__s_vec
+
 
     @property
     def v(self):
@@ -128,17 +133,18 @@ class paramvar():
         self.__set_jco_svd()
         return self.__v
 
+
     def __set_jco_svd(self):
         if self.__u != None:
             return
         try:
-            u,s_vec,vt = scipy.linalg.svd(self.jco.x)
+            u,s_vec,vt = linalg.svd(self.jco.x)
             v = vt.transpose()
         except Exception as e:
             print str(e)
             print 'svd failed, trying SVD on (q^(1/2)X)^T'
             try:
-                v,s_vec,u = scipy.linalg.svd(self.jco.x.transpose())
+                v,s_vec,u = linalg.svd(self.jco.x.transpose())
             except Exception as e:
                 print 'both attempts of SVD failed...shit out of luck'
                 print str(e)
@@ -152,8 +158,14 @@ class paramvar():
     def par_unc(self):
         if self.__par_unc != None:
             return self.__par_unc
-        self.__par_unc = mhand.uncert(self.nspar_names)
-        self.__par_unc.from_uncfile(self.par_uncfile)
+        self.__par_unc = mhand.uncert(self.nes_names)
+        if self.par_uncfile is None:
+            self.__par_unc.x = np.diag(np.ones((self.jco.shape[1])))
+        elif self.par_uncfile.endswith("pst"):
+            self.__par_unc.from_parbounds(self.par_uncfile)
+        else:
+            self.__par_unc.from_uncfile(self.par_uncfile)
+        
         return self.__par_unc
 
 
@@ -166,7 +178,7 @@ class paramvar():
             self.__obs_unc.from_uncfile(self.obs_uncfile)
         else:
             self.__obs_unc = mhand.uncert(self.nz_names)
-            self.__obs_unc.from_obsweights(self.case)
+            self.__obs_unc.from_obsweights(self.case+".pst")
         return self.__obs_unc
 
 
@@ -184,7 +196,7 @@ class paramvar():
     def qhalf(self):
         if self.__qhalf != None:
             return self.__qhalf
-        u,s,vt = scipy.linalg.svd(self.obs_unc.x)
+        u,s,vt = linalg.svd(self.obs_unc.x)
         for i in range(u.shape[0]):
             u[:,i] *= s[i]**(-0.5)
         self.__qhalf = np.dot(u,vt)
@@ -192,4 +204,16 @@ class paramvar():
 
 
 
-c
+if __name__ == "__main__":
+    import os
+    os.chdir(r"D:\Users\jwhite\git_repo\pestpp\pest++\benchmarks\10par_xsec")
+    case = "pest_10obs"
+    pe = paramvar(case,par_uncfile=case+".pst")
+    pe.clean_jco()
+    #pe.apply_qhalf_inplace()
+    #pe.apply_kl_inplace()
+    pe.scale_jco()
+    for ising in range(4):
+        print pe.get_first(ising)[0],pe.get_second(ising)[0]
+   
+    print
