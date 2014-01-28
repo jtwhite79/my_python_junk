@@ -143,7 +143,8 @@ class entry():
                 if self.required:
                     raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
                 else:
-                    print 'Warning - unable to cast '+str(value)+' to type '+str(self.dtype)+' for non-required entry '+str(self.name)
+                    #print 'Warning - unable to cast '+str(value)+' to type '+str(self.dtype)+' for non-required entry '+str(self.name)
+                    pass
         elif self.dtype == F:
             try:
                 self.__value = np.float(value)
@@ -151,7 +152,8 @@ class entry():
                 if self.required:
                     raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
                 else:
-                    print 'Warning - unable to cast '+str(value)+' to type '+str(self.dtype)+' for non-required entry '+str(self.name)
+                    #print 'Warning - unable to cast '+str(value)+' to type '+str(self.dtype)+' for non-required entry '+str(self.name)
+                    pass
         elif self.dtype == S:
             try:                
                 self.__value = str(value).lower()
@@ -159,7 +161,8 @@ class entry():
                 if self.required:
                     raise Exception('unable to cast '+str(value)+' to type '+str(self.dtype)+' for entry '+str(self.name))
                 else:
-                    print 'Warning - unable to cast '+str(value)+' to type '+str(self.dtype)+' for non-required entry '+str(self.name)
+                    #print 'Warning - unable to cast '+str(value)+' to type '+str(self.dtype)+' for non-required entry '+str(self.name)
+                    pass
         else:
             raise Exception('unsupported dtype: '+str(self.dtype))
 
@@ -501,6 +504,7 @@ class pst():
             else:
                 sel.append(True)
         self.prior_information = self.prior_information[sel]
+        self.nprior.set_value(self.prior_information.shape[0])
         return
         
         
