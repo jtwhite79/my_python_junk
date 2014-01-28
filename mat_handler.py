@@ -102,11 +102,6 @@ class matrix():
         extract = self.x[:,idxs].copy()
         self.x = np.delete(self.x,idxs,1)
         return extract
-            
-            
-
-
-
 
     def from_binary(self,filename):        
         f = open(filename,'rb')
@@ -244,7 +239,23 @@ class uncert(matrix):
         self.col_names = names
 
 
-    
+    def from_obsweights(self,pst_file):
+        if not pst_file.endswith(".pst"):
+            pst_file += ".pst"
+        import pst_handler as phand
+        pst = phand.pst(pst_file)
+        visited = [False] * len(self.names)
+        for i,row in pst.observation_data.iterrows():
+            if row["obsnme"] in self.names:
+                idx = self.names.index(row["obsnme"])
+                self.x[idx,idx] = (1.0/row["weight"])**2
+                visited[idx] = True
+        if False in visited:
+            for name,visit in zip(self.names,visited):
+                if not visit:
+                    print 'entry not found for name:',name
+            raise Exception('error loading uncertainty from observations weights')
+
     def from_uncfile(self,filename):
         visited = [False] * len(self.names)
         f = open(filename,'r')
