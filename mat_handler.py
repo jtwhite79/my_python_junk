@@ -85,8 +85,7 @@ class matrix():
                 idx = self.row_names.index(name)
                 self.x = np.delete(self.x,idx,0)
                 self.row_names.remove(name)
-            
-
+        
     def extract_cols(self,names):
         '''extracts and returns
         '''
@@ -238,6 +237,16 @@ class uncert(matrix):
         self.row_names = names
         self.col_names = names
 
+    def to_uncfile(self,unc_file,covmat_file="cov.mat",var_mult=1.0):
+        f = open(unc_file,'w')
+        f.write("START COVARIANCE_MATRIX\n")
+        f.write(" file "+covmat_file+"\n")
+        f.write(" variance_multiplier {0:15.6E}\n".format(var_mult))
+        f.write("END COVARIANCE_MATRIX\n")
+        f.close()
+        self.to_ascii(covmat_file,icode=1)
+
+
 
     def from_obsweights(self,pst_file):
         if not pst_file.endswith(".pst"):
@@ -250,7 +259,9 @@ class uncert(matrix):
                 idx = self.names.index(row["obsnme"])
                 w = row["weight"]
                 if w == 0.0:
-                    raise Exception("zero weight observation: "+row["obsnme"])
+                    #raise Exception("zero weight observation: "+row["obsnme"])
+                    print "resetting weight for",row["obsnme"],"from 0.0 to 1.0e-30"
+                    w = 1.0e-30
                 self.x[idx,idx] = (1.0/w)**2
                 visited[idx] = True
         if False in visited:
