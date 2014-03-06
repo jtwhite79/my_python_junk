@@ -285,6 +285,8 @@ class pst():
             raw = line.strip().split()
             new_line = [raw[0],' '.join(raw[1:-2]),raw[-2],raw[-1]]
             return new_line
+        elif "COMMAND" in section_marker.upper():
+            return [line]
         else:
             return line.strip().split()
 
@@ -321,6 +323,7 @@ class pst():
                 break
             elif line.startswith('*'):
                 f.seek(line_start_pointer)
+                #print f.readline()
                 break  
             raw = self.parse_line(line,section_marker)
             for p,r in zip(params,raw):
