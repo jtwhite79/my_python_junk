@@ -40,6 +40,10 @@ class param_unc_var():
                 nz_weights.append(weight)
                 nz_names.append(name)
         self.jco.drop(drop_row_names)
+        nprior = self.pst.nprior.value 
+        if nprior > 0:
+            drop_row_names = self.nz_names[-nprior:]
+        self.jco.drop(drop_row_names)
 
     def load_jco(self):
         jco = mhand.matrix()
