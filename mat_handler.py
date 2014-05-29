@@ -85,8 +85,7 @@ class matrix():
                 idx = self.row_names.index(name)
                 self.x = np.delete(self.x,idx,0)
                 self.row_names.remove(name)
-            
-
+        
     def extract_cols(self,names):
         '''extracts and returns
         '''
@@ -102,11 +101,6 @@ class matrix():
         extract = self.x[:,idxs].copy()
         self.x = np.delete(self.x,idxs,1)
         return extract
-            
-            
-
-
-
 
     def from_binary(self,filename):        
         f = open(filename,'rb')
@@ -243,8 +237,65 @@ class uncert(matrix):
         self.row_names = names
         self.col_names = names
 
+    def to_uncfile(self,unc_file,covmat_file="cov.mat",var_mult=1.0):
+        f = open(unc_file,'w')
+        f.write("START COVARIANCE_MATRIX\n")
+        f.write(" file "+covmat_file+"\n")
+        f.write(" variance_multiplier {0:15.6E}\n".format(var_mult))
+        f.write("END COVARIANCE_MATRIX\n")
+        f.close()
+        self.to_ascii(covmat_file,icode=1)
 
-    
+
+
+    def from_obsweights(self,pst_file):
+        if not pst_file.endswith(".pst"):
+            pst_file += ".pst"
+        import pst_handler as phand
+        pst = phand.pst(pst_file)
+        visited = [False] * len(self.names)
+        for i,row in pst.observation_data.iterrows():
+            if row["obsnme"] in self.names:
+                idx = self.names.index(row["obsnme"])
+                w = row["weight"]
+                if w == 0.0:
+                    #raise Exception("zero weight observation: "+row["obsnme"])
+                    print "resetting weight for",row["obsnme"],"from 0.0 to 1.0e-30"
+                    w = 1.0e-30
+                self.x[idx,idx] = (1.0/w)**2
+                visited[idx] = True
+        if False in visited:
+            for name,visit in zip(self.names,visited):
+                if not visit:
+                    print 'entry not found for name:',name
+            raise Exception('error loading uncertainty from observations weights')
+
+    def from_parbounds(self,pst_file):
+        if not pst_file.endswith(".pst"):
+            pst_file += ".pst"
+        import pst_handler as phand
+        pst = phand.pst(pst_file)
+        visited = [False] * len(self.names)
+        for i,row in pst.parameter_data.iterrows():
+            if row["parnme"] in self.names:
+                idx = self.names.index(row["parnme"])
+                t = row["partrans"]
+                if t in ["fixed","tied"]:
+                    raise Exception("fixed or tied parameter: "+row["parnme"])
+                lb,ub = row["parlbnd"],row["parubnd"]
+                if t == "log":
+                    var = ((np.log10(ub) - np.log10(lb))/4.0)**2
+                else:
+                    var = ((ub - lb)/4.0)**2
+                self.x[idx,idx] = var
+                visited[idx] = True
+        if False in visited:
+            for name,visit in zip(self.names,visited):
+                if not visit:
+                    print 'entry not found for name:',name
+            raise Exception('error loading uncertainty from observations weights')
+
+
     def from_uncfile(self,filename):
         visited = [False] * len(self.names)
         f = open(filename,'r')

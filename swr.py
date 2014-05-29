@@ -717,8 +717,14 @@ class swr_timestep():
         self.ds_8b = ds_8b(evap_entries)
         self.ds_10 = ds_10(igeonumr,filename_prefix=datadir+'ds_10_')
         self.ds_11 = ds_11(igeo,filename_prefix=datadir+'ds_11_')
-        self.ds_12 = ds_12(data_12,filename_prefix=datadir+'ds_12_')
-        self.ds_13 = ds_13(data_13,filename_prefix=datadir+'ds_13_')
+        if data_12 is not None:
+            self.ds_12 = ds_12(data_12,filename_prefix=datadir+'ds_12_')
+        else:
+            self.ds_12 = None
+        if data_13 is not None:
+            self.ds_13 = ds_13(data_13,filename_prefix=datadir+'ds_13_')
+        else:
+            self.ds_13 = None
 
         self.ds_14 = df_14(reaches,sp_dates,filename_prefix=datadir+'ds_14_')        
         self.sp_num = 1
@@ -743,11 +749,12 @@ class swr_timestep():
                 self.ds_5.irdgeo = irdgeo_10
             else:
                 self.ds_5.irdgeo = 0
-
-            len_12,e12 = self.ds_12.get_entry(start)
-            len_13,e13 = self.ds_13.get_entry(start)                            
-            self.ds_5.irdstr = len_12
-
+            if self.ds_12 is not None:
+                len_12,e12 = self.ds_12.get_entry(start)
+                len_13,e13 = self.ds_13.get_entry(start)                            
+                self.ds_5.irdstr = len_12
+            else:
+                self.ds_5.irdstr = 0
             self.ds_5.irdstg,e14 = self.ds_14.get_entry(start)            
             
             #--write the entries for this stress period
@@ -770,7 +777,8 @@ class swr_timestep():
             if self.ds_5.irdstg != 0:
                 f_obj.write(e14)                       
             self.sp_num += 1  
-            #break               
+            #if start == self.sp_dates[8]:
+            #    break              
         f_obj.close()
         return    
 
