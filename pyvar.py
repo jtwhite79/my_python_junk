@@ -43,9 +43,19 @@ class param_unc_var():
         nprior = self.pst.nprior.value 
         if nprior > 0:
             drop_row_names = self.nz_names[-nprior:]
+        
         self.jco.drop(drop_row_names)
+        #--drop fixed parameters
+        drop_col_names = []
+        for name,trans in zip(self.pst.parameter_data.parnme,\
+                              self.pst.parameter_data.partrans):
+            if name in self.nes_names and trans == "fixed":
+                drop_col_names.append(name)
+        if len(drop_col_names) > 0:
+            self.jco.drop(drop_col_names)                                    
 
     def load_jco(self):
+        print "loading JCO"
         jco = mhand.matrix()
         jco.from_binary(self.case+".jco")
         return jco
@@ -113,13 +123,24 @@ class param_unc_var():
             raise Exception("not qhalf scaling for unc() calculation")
         if self.__par_scaled:
             raise Exception("not KL transform for unc() calculation")
-        #--form XtC-1(e)X
+        #--form XtC-1(e)X       
         obs_unc = self.obs_unc.x
         par_unc = self.par_unc.x
-        obs_inv = linalg.inv(self.obs_unc.x)
+        print "inverting obs unc"
+        if self.__diagonal_obs_unc:
+            obs_inv = np.zeros_like(obs_unc)
+            for i in range(obs_unc.shape[0]):
+                obs_inv[i,i] = 1.0 / obs_unc[i,i]             
+        else:
+            raise Exception()
+            obs_inv = linalg.inv(self.obs_unc.x)
+        print "forming first term - part 1"
         first = np.dot(self.jco.x.transpose(),obs_inv)
+        print "formting first term - part 2"
         first = np.dot(first,self.jco.x)
+        print "forming second term"
         second = linalg.inv(self.par_unc.x)
+        print "inverting (first + second)"        
         return linalg.inv(first+second)                        
 
     @property
@@ -176,7 +197,8 @@ class param_unc_var():
     @property
     def par_unc(self):
         if self.__par_unc != None:
-            return self.__par_unc
+            return self.__par_unc  
+        print "loading paramter unc matrix"
         self.__par_unc = mhand.uncert(self.nes_names)
         if isinstance(self.par_uncfile,np.ndarray):
             self.__par_unc.x = self.par_uncfile
@@ -193,12 +215,14 @@ class param_unc_var():
     def obs_unc(self):
         if self.__obs_unc != None:
             return self.__obs_unc
+        print "loading obs unc matrix"    
         if self.obs_uncfile is not None:
             self.__obs_unc = mhand.uncert(self.nz_names)
             self.__obs_unc.from_uncfile(self.obs_uncfile)
         else:
             self.__obs_unc = mhand.uncert(self.nz_names)
             self.__obs_unc.from_obsweights(self.case+".pst")
+            self.__diagonal_obs_unc = True
         return self.__obs_unc
 
     @property
@@ -273,5 +297,5 @@ if __name__ == "__main__":
     #    print pe.var_first(ising)[0],pe.var_second(ising)[0]
    
     #print pe.par_unc.x
-    print np.diag(postunc)
-    print
+    #print np.diag(postunc)
+    #print

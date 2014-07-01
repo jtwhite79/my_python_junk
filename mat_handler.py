@@ -85,6 +85,7 @@ class matrix():
                 idx = self.row_names.index(name)
                 self.x = np.delete(self.x,idx,0)
                 self.row_names.remove(name)
+                                 
         
     def extract_cols(self,names):
         '''extracts and returns
@@ -127,21 +128,32 @@ class matrix():
     
         #--read all data records
         #--using this a real memory hog
+        print "loading rec array"
         data = np.fromfile(f,rec_dt,icount) 
     
-        #--uncompress the data into x    
-        for i in data:
+        print "calc icols and irows"
+        icols = ((data['j'] - 1) / nrow) + 1
+        irows = data['j'] - ((icols -1) * nrow)
+        #--uncompress the data into x
+        #icount = 0    
+        #for i in data:
+        #for irow,icol,dtemp in zip(irows,icols,data["dtemp"]):
         #for ii in range(icount):
             #i = np.fromfile(f,rec_dt,1)[0]
-            j = i[0]
-            dtemp = i[1]
-            icol = ((j-1) / nrow) + 1
-            irow = j - ((icol - 1) * nrow)
+            #j = i[0]            
+            #icol = ((j-1) / nrow) + 1
+            #irow = j - ((icol - 1) * nrow)
             #print i,ies,irow
         
             #--zero-based indexing translation
-            self.x[irow-1,icol-1] = dtemp
+            #self.x[irow-1,icol-1] = dtemp
+            #icount += 1
+            #if icount % 5000 == 0:
+            #    print icount,data.shape
         #print time.clock() - start
+        print "filling..."
+        self.x[irows-1,icols-1] = data["dtemp"]
+        
         #--read parameter names
         col_names = []
         for i in range(ncol):
@@ -225,7 +237,7 @@ class matrix():
                 names.append(line)
             self.col_names = names
         f.close()
-        x = np.array(x,dtype=self.double)
+        x = np.array(x,dtype=np.double)
         x.resize(nrow,ncol)
         self.x = x                
 

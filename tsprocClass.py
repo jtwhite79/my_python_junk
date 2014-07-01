@@ -1240,7 +1240,7 @@ class tsproc(base_block):
             this_item_values.append(m_block.name)  
                                                                            
             this_item_keys.append(this_data_type[:-5]+'_WEIGHTS_EQUATION')
-            this_item_values.append(str(o_block.wght))
+            this_item_values.append(str(m_block.wght))
             if o_block.max_min != None:
                 this_item_keys.append(this_data_type[:-5]+'_WEIGHTS_MIN_MAX')
                 this_item_values.append(o_block.max_min)
